@@ -1,0 +1,358 @@
+---
+title: "BayesTrace"
+output:
+  flexdashboard::flex_dashboard:
+    vertical_layout: fill
+  
+---
+            
+<style>
+.navbar {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  display: block;
+  position: fixed;
+  width: 150px; /* Modify the width of the sidebar */
+}
+body {
+          margin-left: 150px; /* Add a left margin to avoid content overlay */
+          padding-top:10 px
+}
+</style>
+
+```{r setup, include=FALSE}
+# Load required packages
+library(flexdashboard)
+library(tidyverse)
+library(reactable)
+library(qgraph)
+library(coda)
+library(ape)
+library(RColorBrewer)
+
+# Load custom functions
+setwd("~/Documents/GitHub/bayestrace/bayestrace_flex/")
+source("./functions/read_bt_log.r")
+
+# Define Colour Scheme
+
+# Define EXTRA burnin (proportion of chain to keep. Default is 1 (keep entire chain))
+burnin=1
+
+# Define how many (random) iterations to keep for plotting (reduces load, default = 10,000)
+samples_max=10000
+
+# Define path to files
+dir_path="../BayesTraitsV4.0.0-OSX/examples/Artiodactyl_multistates_anc_states"
+
+## other inputs that are probably required: the name of the tree file and the data file
+
+```
+
+
+
+
+
+Data input {data-orientation=columns}
+=====================================  
+
+```{r}
+bt<-read_bt_log(dir_path)
+tre<-read.nexus(grep(list.files(dir_path, full.names = TRUE), pattern = "\\.tre", value = TRUE))
+
+txt_files<-grep(list.files(dir_path, full.names = TRUE), pattern="\\.txt", value=TRUE)
+dat<-read_tsv(txt_files[!txt_files %in% grep(list.files(dir_path, full.names = TRUE), pattern="\\.Log.txt|\\.Schedule\\.txt|_run\\d+\\.txt", value=TRUE)],
+              col_names = c("Species","Trait")) %>%
+  arrange(match(Species, tre[[1]]$tip.label))
+
+# remove burnin and downsample
+bt$chain_clean<-bt$chain %>%
+  slice_tail(prop = burnin) %>%
+  filter(row_number() %in% floor(seq(1, n(), length.out=samples_max)))
+
+# define colour space
+traits_colors<-sample(brewer.pal(8,"Dark2"), length(unique(dat$Trait)))
+names(traits_colors)<-unique(dat$Trait)
+```
+
+Column {data-width=60%}
+-----------------------------------------------------------------------
+
+### BayesTraits Header
+
+```{r}
+bt$header %>%
+  reactable(defaultPageSize = 50)
+```
+
+Column {data-width=40%}
+-----------------------------------------------------------------------
+
+
+### Restrictions
+
+```{r}
+bt$restrictions %>%
+  reactable(defaultPageSize = 20)
+```
+
+### Tags
+
+```{r}
+bt$tags %>%
+  reactable(defaultPageSize = 20)
+```
+
+### Reconstructions/fossilisations
+
+```{r}
+bt$recon %>%
+  reactable(defaultPageSize = 20)
+```
+
+
+### Priors
+
+```{r}
+bt$priors %>%
+  reactable(defaultPageSize = 20)
+```
+
+### Tree
+
+```{r}
+bt$tree %>%
+  reactable(defaultPageSize = 20)
+```
+
+
+MCMC traces {data-orientation=columns}
+=====================================  
+    
+Column {data-width=75%}
+-----------------------------------------------------------------------
+
+### ML Chain
+This plot shows 10,000 random iterations of the Maximum Likelihood chains
+```{r}
+bt$chain_clean %>%
+  ggplot(aes(x=Iteration, y=Lh, color=`Run ID`)) +
+  geom_line(alpha=0.5) +
+  #geom_smooth(se = FALSE) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+
+Column {data-width=25%}
+-----------------------------------------------------------------------
+
+### ML Chain Density
+
+```{r}
+bt$chain_clean %>%
+  ggplot(aes(x=Lh, fill=`Run ID`)) +
+  geom_density(alpha=0.30, color=NA) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+
+### ML Chain boxplot
+
+```{r}
+bt$chain_clean %>%
+  ggplot(aes(x=`Run ID`, y=Lh, fill=`Run ID`, alpha=0.5)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.2) +
+  theme_bw() +
+  labs(x="", y="Log Likelihood") +
+  theme(legend.position = "none")
+```
+
+
+MCMC Diagnostics
+=====================================  
+
+Column {data-width=50%}
+-----------------------------------------------------------------------
+
+### Effective Sampling Sizes
+
+```{r}
+ESS<-bt$chain %>%
+  select(`Run ID`,starts_with(c("Lh","q","Root"))) %>%
+  group_by(`Run ID`) %>%
+  summarize_all(effectiveSize) %>%
+  ungroup() %>%
+  pivot_longer(-`Run ID`, names_to = "Parameter", values_to="ESS") %>%
+  pivot_wider(names_from = `Run ID`, values_from = ESS)
+  
+# plot
+ESS %>%
+  mutate_if(is.numeric, round, 2) %>%
+  reactable(
+    defaultPageSize = 50,
+    defaultColDef = colDef(
+    style = function(value) {
+      if (is.character(value)) {
+        color="black"
+      } else if (value > 2000) {
+        color <- "#008000"
+      } else if (value < 2000) {
+        color <- "#e00000"
+      } else {
+        color <- "#777"
+      }
+      list(color = color, fontWeight = "bold")
+    }
+    )
+  )
+
+```
+
+Column {data-width=50%}
+-----------------------------------------------------------------------
+
+### Autocorrelation
+
+```{r}
+
+```
+
+
+Rate Estimates {data-orientation=rows}
+=====================================  
+
+Row
+-----------------------------------------------------------------------
+
+### Root State
+
+
+```{r fig.cap='Root state probabilities'}
+bt$chain_clean %>%
+  select(starts_with("Root")) %>%
+  summarise_all(mean) %>%
+  pivot_longer(everything(),names_to="State",values_to="prob") %>%
+  mutate(State=str_remove_all(State, "Root P\\(|\\)")) %>%
+  ggplot(aes(x="",y=prob, fill=State)) +
+  geom_bar(stat="identity") +
+  coord_polar("y") +
+  theme_void() + 
+  theme(legend.position = "bottom")
+```
+
+### Transition Rates Network
+
+
+```{r fig.cap='Mean transition rates'}
+# calculate mean transition rates based on all chains
+mean_transition_rates<-bt$chain_clean %>%
+    select(starts_with("q")) %>%
+    summarise_all(mean) %>%
+    pivot_longer(everything(),names_to="parameter", values_to = "rate") %>%
+    mutate(from=str_sub(parameter, 2,2), to=str_sub(parameter, 3,3)) %>%
+    arrange(from) %>%
+  select(from, to, rate) %>%
+  pivot_wider(names_from = to, values_from = rate) %>%
+  select(from, .$from) %>%
+  column_to_rownames("from")
+  
+# plot
+qgraph(mean_transition_rates,
+       #nodes:
+         shape="rectangle",
+         vsize=10,
+         node.height=0.5,
+         label.cex=1.25,
+         #label.color=rep.cols[rownames(q_matrix)],
+         
+       # edges:
+         edge.labels=T,
+         edge.label.cex=2,
+         #minimum=0.03, # threshold for edges to include
+         edge.width=1.5,
+         posCol="black",
+         fade=T,
+         colFactor=0.5,
+         # themes and layout:
+         #theme="TeamFortress",
+         #layout="circular",
+         directed=TRUE)
+```
+
+
+
+Row
+-----------------------------------------------------------------------
+
+### Transition Rates Densities
+
+```{r fig.cap='Density distributions of rate transition estimates. Line show mean rates.'}
+bt$chain_clean %>%
+  select(starts_with("q")) %>%
+  pivot_longer(everything(), names_to = "transition", values_to = "rate") %>%
+  ggplot(aes(x=rate)) +
+  geom_density(alpha=0.75, fill="grey50",color=NA) +
+  geom_vline(data=bt$chain_clean %>%
+    select(starts_with("q")) %>%
+    summarise_all(mean) %>%
+      pivot_longer(everything(), names_to = "transition"),
+    aes(xintercept=value, linetype="dashed")) +
+  facet_wrap(~transition, scales = "free") +
+  theme_bw() +
+  theme(legend.position = "none")
+
+```
+
+Ancestral States {data-orientation=columns}
+=====================================  
+
+```{r}
+# make the ancestral states df
+anc_df<-bt$tags %>%
+  left_join(bt$recon, by="Tag")
+
+
+# get node numbers for ancestral states
+node_num<-c()
+for(i in 1:nrow(anc_df)){
+  tips<-unlist(str_split(anc_df$Species[i], " "))
+  node_num[i]<-getMRCA(tre[[1]], tips)
+}
+
+## add node numbers and extract mean probabilities per node state
+anc_df<-anc_df %>%
+  mutate(node_num=node_num) %>%
+  left_join(
+    bt$chain %>%
+      select(contains(anc_df$Node)) %>%
+      summarise_all(mean, na.rm=TRUE) %>%
+      pivot_longer(everything()) %>%
+      mutate(name=str_remove_all(name, "P\\(|\\)")) %>%
+      separate(name, into=c("Node","Prob"), sep=" ") %>%
+      pivot_wider(values_from = value, names_from = Prob),
+    by="Node")
+
+```
+
+
+### Phylogeny {data-height=80%}
+
+```{r}
+plot(tre[[1]], no.margin = T, tip.color = traits_colors[dat$Trait])
+nodelabels(node = anc_df$node_num,pie = anc_df %>% select(unique(dat$Trait)),
+           cex = 1, piecol=traits_colors[unique(dat$Trait)])
+legend("topleft", legend = names(traits_colors), pch=15, col=traits_colors)
+```
+
+
+### Ancestral states {data-height=20%}
+
+```{r}
+anc_df %>%
+  select(Tag, Node, Species,unique(dat$Trait)) %>%
+  mutate_if(is.numeric, round, 2) %>%
+  reactable()
+```
+
