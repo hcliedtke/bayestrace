@@ -4,7 +4,7 @@
 # x: is the folder that contains one or more BayesTraits log files. Log files must end with .Log.txt
 
 ### output:
-# a list object with two dataframes: the MCMC trace and the 
+# a list object with different tibbles for each section of the log header.
 
 read_bt_log<-function(x){
   

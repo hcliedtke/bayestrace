@@ -32,8 +32,10 @@ library(ape)
 library(RColorBrewer)
 
 # Load custom functions
-setwd("~/Documents/GitHub/bayestrace/bayestrace_flex/")
+setwd("~/Documents/bayestrace/bayestrace_flex/")
 source("./functions/read_bt_log.r")
+source("./functions/read_bt_schedule.r")
+
 
 # Define Colour Scheme
 
@@ -44,9 +46,12 @@ burnin=1
 samples_max=10000
 
 # Define path to files
-dir_path="../BayesTraitsV4.0.0-OSX/examples/Artiodactyl_multistates_anc_states"
 
-## other inputs that are probably required: the name of the tree file and the data file
+# multistates example
+#dir_path="./examples/Artiodactyl_multistates_anc_states/"
+
+# fossilised example
+dir_path="./examples/Artiodactyl_multistates_fossilised/"
 
 ```
 
@@ -58,19 +63,34 @@ Data input {data-orientation=columns}
 =====================================  
 
 ```{r}
+# load BayesTraits log file
 bt<-read_bt_log(dir_path)
-tre<-read.nexus(grep(list.files(dir_path, full.names = TRUE), pattern = "\\.tre", value = TRUE))
 
-txt_files<-grep(list.files(dir_path, full.names = TRUE), pattern="\\.txt", value=TRUE)
-dat<-read_tsv(txt_files[!txt_files %in% grep(list.files(dir_path, full.names = TRUE), pattern="\\.Log.txt|\\.Schedule\\.txt|_run\\d+\\.txt", value=TRUE)],
-              col_names = c("Species","Trait")) %>%
-  arrange(match(Species, tre[[1]]$tip.label))
+# load input tree
+tre<-read.nexus(file = paste0(dir_path,"/",bt$header %>%
+                                filter(Options=="Tree File Name:") %>%
+                                pull(2))
+                )
 
+# load traits file 
+dat<-read_tsv(file = paste0(dir_path,"/",bt$header %>%
+                                filter(Options=="Data File Name:") %>%
+                                pull(2)),
+              col_names = c("Species","Trait")
+              )
+
+# load schedule files
+acceptance_rate<-read_bt_schedule(dir_path)
+```
+
+```{r}
 # remove burnin and downsample
 bt$chain_clean<-bt$chain %>%
   slice_tail(prop = burnin) %>%
   filter(row_number() %in% floor(seq(1, n(), length.out=samples_max)))
+```
 
+```{r}
 # define colour space
 traits_colors<-sample(brewer.pal(8,"Dark2"), length(unique(dat$Trait)))
 names(traits_colors)<-unique(dat$Trait)
@@ -97,20 +117,13 @@ bt$restrictions %>%
   reactable(defaultPageSize = 20)
 ```
 
-### Tags
-
-```{r}
-bt$tags %>%
-  reactable(defaultPageSize = 20)
-```
-
-### Reconstructions/fossilisations
+### Reconstructions / Fossilisations
 
 ```{r}
 bt$recon %>%
+  left_join(bt$tags) %>%
   reactable(defaultPageSize = 20)
 ```
-
 
 ### Priors
 
@@ -139,7 +152,7 @@ This plot shows 10,000 random iterations of the Maximum Likelihood chains
 bt$chain_clean %>%
   ggplot(aes(x=Iteration, y=Lh, color=`Run ID`)) +
   geom_line(alpha=0.5) +
-  #geom_smooth(se = FALSE) +
+  geom_smooth(se = FALSE) +
   theme_bw() +
   theme(legend.position = "bottom")
 ```
@@ -157,7 +170,7 @@ bt$chain_clean %>%
   theme(legend.position = "bottom")
 ```
 
-### ML Chain boxplot
+### ML Chain violins
 
 ```{r}
 bt$chain_clean %>%
@@ -228,7 +241,6 @@ Row
 
 ### Root State
 
-
 ```{r fig.cap='Root state probabilities'}
 bt$chain_clean %>%
   select(starts_with("Root")) %>%
@@ -236,14 +248,15 @@ bt$chain_clean %>%
   pivot_longer(everything(),names_to="State",values_to="prob") %>%
   mutate(State=str_remove_all(State, "Root P\\(|\\)")) %>%
   ggplot(aes(x="",y=prob, fill=State)) +
+  scale_fill_manual(values = traits_colors) +
   geom_bar(stat="identity") +
   coord_polar("y") +
   theme_void() + 
   theme(legend.position = "bottom")
 ```
 
-### Transition Rates Network
 
+### Transition Rates Network
 
 ```{r fig.cap='Mean transition rates'}
 # calculate mean transition rates based on all chains
@@ -265,18 +278,18 @@ qgraph(mean_transition_rates,
          vsize=10,
          node.height=0.5,
          label.cex=1.25,
-         #label.color=rep.cols[rownames(q_matrix)],
-         
+         label.color=traits_colors[rownames(mean_transition_rates)],
+       
        # edges:
          edge.labels=T,
-         edge.label.cex=2,
+         edge.label.cex=1,
          #minimum=0.03, # threshold for edges to include
          edge.width=1.5,
          posCol="black",
          fade=T,
          colFactor=0.5,
          # themes and layout:
-         #theme="TeamFortress",
+         # theme="TeamFortress",
          #layout="circular",
          directed=TRUE)
 ```
@@ -288,7 +301,7 @@ Row
 
 ### Transition Rates Densities
 
-```{r fig.cap='Density distributions of rate transition estimates. Line show mean rates.'}
+```{r fig.cap='Density distributions of rate transition estimates. Line show mean rates.', fig.width=12}
 bt$chain_clean %>%
   select(starts_with("q")) %>%
   pivot_longer(everything(), names_to = "transition", values_to = "rate") %>%
@@ -305,7 +318,7 @@ bt$chain_clean %>%
 
 ```
 
-Ancestral States {data-orientation=columns}
+Node Reconstructions {data-orientation=columns}
 =====================================  
 
 ```{r}
@@ -334,25 +347,63 @@ anc_df<-anc_df %>%
       pivot_wider(values_from = value, names_from = Prob),
     by="Node")
 
+## add trait data to first tree
+tre_1<-tre[[1]]
+tre_1$traits<-dat %>%
+  arrange(match(Species, tre_1$tip.label)) %>%
+  pull(Trait)
 ```
 
 
 ### Phylogeny {data-height=80%}
 
-```{r}
-plot(tre[[1]], no.margin = T, tip.color = traits_colors[dat$Trait])
+```{r fig.width=12}
+plot(tre_1, no.margin = T, tip.color = traits_colors[tre_1$traits])
 nodelabels(node = anc_df$node_num,pie = anc_df %>% select(unique(dat$Trait)),
-           cex = 1, piecol=traits_colors[unique(dat$Trait)])
-legend("topleft", legend = names(traits_colors), pch=15, col=traits_colors)
+           cex = 1, piecol=traits_colors)
+legend("topleft", legend = names(traits_colors), pch=15, col=traits_colors, bty="n")
 ```
 
 
-### Ancestral states {data-height=20%}
+### Node Reconstruction / Fossilisation {data-height=20%}
 
 ```{r}
 anc_df %>%
   select(Tag, Node, Species,unique(dat$Trait)) %>%
   mutate_if(is.numeric, round, 2) %>%
   reactable()
+```
+
+
+Acceptance Rates {data-orientation=columns}
+=====================================  
+
+
+### Mean Acceptance Parameters {data-height=20%}
+
+```{r}
+# mean values
+acceptance_rate$schedule %>%
+  group_by(`Run ID`) %>%
+  summarise_all(mean) %>%
+  mutate_if(is.numeric, round, 2) %>%
+  reactable()
+```
+
+### Acceptance Parameters Traces {data-height=80%}
+
+```{r fig.width=12}
+# plot
+acceptance_rate$schedule %>%
+  group_by(`Run ID`) %>%
+  filter(row_number() %in% floor(seq(1, n(), length.out=samples_max/2))) %>% # downsample
+  mutate(iter = 1:n()) %>%
+  pivot_longer(-c(`Run ID`, iter)) %>%
+  ggplot(aes(x=iter, y=value, color=`Run ID`)) +
+  geom_line(alpha=0.5) +
+  facet_wrap(~name, scales = "free_y") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
 ```
 
