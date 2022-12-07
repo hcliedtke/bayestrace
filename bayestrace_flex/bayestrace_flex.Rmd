@@ -1,9 +1,11 @@
 ---
 title: "BayesTrace"
 output:
+  
   flexdashboard::flex_dashboard:
     vertical_layout: fill
-  
+editor_options: 
+  chunk_output_type: console
 ---
             
 <style>
@@ -32,7 +34,7 @@ library(ape)
 library(RColorBrewer)
 
 # Load custom functions
-setwd("~/Documents/bayestrace/bayestrace_flex/")
+#setwd("~/Documents/bayestrace/bayestrace_flex/")
 source("./functions/read_bt_log.r")
 source("./functions/read_bt_schedule.r")
 
@@ -51,7 +53,11 @@ samples_max=10000
 #dir_path="./examples/Artiodactyl_multistates_anc_states/"
 
 # fossilised example
-dir_path="./examples/Artiodactyl_multistates_fossilised/"
+#dir_path="./examples/Artiodactyl_multistates_fossilised/"
+
+# model reduction example
+dir_path="./examples/Artiodactyl_reduction/"
+
 
 ```
 
@@ -62,7 +68,7 @@ dir_path="./examples/Artiodactyl_multistates_fossilised/"
 Data input {data-orientation=columns}
 =====================================  
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 # load BayesTraits log file
 bt<-read_bt_log(dir_path)
 
@@ -120,9 +126,13 @@ bt$restrictions %>%
 ### Reconstructions / Fossilisations
 
 ```{r}
+if(is.null(bt$tags) | is.null(bt$recon)) {
+  print("No tags or reconstructions set")
+}else{
 bt$recon %>%
   left_join(bt$tags) %>%
   reactable(defaultPageSize = 20)
+  }
 ```
 
 ### Priors
@@ -322,6 +332,11 @@ Node Reconstructions {data-orientation=columns}
 =====================================  
 
 ```{r}
+if(is.null(bt$tags)) {
+  print("No nodes were set for ancestral state reconstrucitions")
+}else{
+  
+
 # make the ancestral states df
 anc_df<-bt$tags %>%
   left_join(bt$recon, by="Tag")
@@ -352,26 +367,36 @@ tre_1<-tre[[1]]
 tre_1$traits<-dat %>%
   arrange(match(Species, tre_1$tip.label)) %>%
   pull(Trait)
+}
 ```
 
 
 ### Phylogeny {data-height=80%}
 
 ```{r fig.width=12}
-plot(tre_1, no.margin = T, tip.color = traits_colors[tre_1$traits])
-nodelabels(node = anc_df$node_num,pie = anc_df %>% select(unique(dat$Trait)),
-           cex = 1, piecol=traits_colors)
-legend("topleft", legend = names(traits_colors), pch=15, col=traits_colors, bty="n")
+if(exists("tre_1")){
+  plot(tre_1, no.margin = T, tip.color = traits_colors[tre_1$traits])
+  nodelabels(node = anc_df$node_num,pie = anc_df %>% select(unique(dat$Trait)),
+             cex = 1, piecol=traits_colors)
+  legend("topleft", legend = names(traits_colors), pch=15, col=traits_colors, bty="n")
+} else {
+  plot(tre[[1]], no.margin = T)
+}
 ```
 
 
 ### Node Reconstruction / Fossilisation {data-height=20%}
 
 ```{r}
-anc_df %>%
-  select(Tag, Node, Species,unique(dat$Trait)) %>%
-  mutate_if(is.numeric, round, 2) %>%
-  reactable()
+if(exists("anc_df")){
+  anc_df %>%
+    select(Tag, Node, Species,unique(dat$Trait)) %>%
+    mutate_if(is.numeric, round, 2) %>%
+    reactable()
+} else {
+  print("No nodes were set for ancestral state reconstrucitions")
+}
+
 ```
 
 
@@ -401,9 +426,189 @@ acceptance_rate$schedule %>%
   pivot_longer(-c(`Run ID`, iter)) %>%
   ggplot(aes(x=iter, y=value, color=`Run ID`)) +
   geom_line(alpha=0.5) +
+  labs(x="Iterations", y="") +
   facet_wrap(~name, scales = "free_y") +
   theme_bw() +
   theme(legend.position = "bottom")
+```
 
+
+RevJ Model Reduction {data-orientation=columns}
+=====================================  
+
+Row {data-height=20%}
+-----------------------------------------------------------------------
+
+### Reverse Jump Model Sampling {data-height=20%}
+
+```{r}
+## check if RJ has been used
+rj<-"Model string" %in% colnames(bt$chain_clean)
+```
+
+
+```{r}
+if(rj){
+transition_rates<-bt$chain_clean %>%
+  select(starts_with("q")) %>%
+  pivot_longer(everything(), names_to = "transitions", values_to = "rates") %>%
+  group_by(transitions) %>%
+  summarise(`Mean Rate`=mean(rates),
+            `Median Rate`=median(rates),
+            `% Non-Zero`=(sum(rates!=0)/length(rates))*100,
+            ESS=effectiveSize(coda::mcmc(rates)),
+            HPD=HPDinterval(coda::mcmc(rates)) %>%
+              as_tibble() %>%
+              mutate_all(round, 2) %>%
+              unite("x",c(lower, upper),sep="-") %>% pull(x)
+            ) %>%
+  arrange(desc(`% Non-Zero`)) %>%
+  mutate_if(is.numeric, round, 2)
+
+# plot
+transition_rates %>%
+  reactable()
+} else {
+  print("No Reverse Jump used")
+}
+
+```
+
+### Reverse Jump Model Ranking {data-height=20%}
+
+```{r}
+if(rj){
+  model_ranking<-bt$chain_clean %>%
+    mutate(`Model string`=str_remove(`Model string`, "'")) %>%
+  count(`Model string`, name = "N sampled") %>%
+  mutate(`% sampled`=`N sampled`/sum(`N sampled`)*100) %>%
+  arrange(desc(`N sampled`)) %>%
+  mutate_if(is.numeric, round, 2) 
+
+# plot
+model_ranking %>% 
+  reactable()
+}else {
+  print("No Reverse Jump used")
+}
+```
+
+Row {data-height=80%}
+-----------------------------------------------------------------------
+
+### Reverse Jump Model Ranking
+
+```{r}
+if(rj){
+  bt$chain_clean %>%
+  count(`Model string`, name = "N sampled") %>%
+  mutate(`% sampled`=`N sampled`/sum(`N sampled`)*100) %>%
+  arrange(desc(`N sampled`)) %>%
+  mutate(`Model string`=factor(`Model string`, levels = unique(`Model string`))) %>%
+  ggplot(aes(x=`Model string`, y=`% sampled`)) +
+  geom_bar(stat="identity")
+}else {
+  print("No Reverse Jump used")
+}
+```
+
+### % Non-zero transitions
+
+```{r}
+
+if(rj){
+  ### Plot transition network for 0% non-zero 
+
+zero_matrix<-transition_rates %>%
+  select(`% Non-Zero`, transitions) %>%
+  mutate(transitions=str_remove(transitions, "q*")) %>%
+  separate(transitions, into=c("from","to"), sep = 1, remove = TRUE) %>%
+  pivot_wider(names_from = to, values_from = `% Non-Zero`) %>%
+  select(from, .$from) %>%
+  column_to_rownames("from")
+
+# plot
+qgraph(zero_matrix,
+       #nodes:
+         shape="rectangle",
+         vsize=10,
+         node.height=0.5,
+         label.cex=1.25,
+         label.color=traits_colors[rownames(zero_matrix)],
+       
+       # edges:
+         edge.labels=T,
+         edge.label.cex=1,
+         #minimum=0.03, # threshold for edges to include
+         edge.width=1.5,
+         posCol="black",
+         fade=T,
+         colFactor=0.5,
+         # themes and layout:
+         # theme="TeamFortress",
+         #layout="circular",
+         directed=TRUE)
+} else {
+  print("No Reverse Jump used")
+}
+
+```
+
+### Acyclic diagrams of three most frequently sampled model
+
+```{r}
+if(rj){
+
+transitions<-na.omit(str_extract(colnames(bt$chain_clean), "q\\w+"))
+
+rj_models<-str_replace_all(model_ranking$`Model string`, "Z", "-1")
+
+rj_models<-enframe(rj_models, name = "rank", value = "cat") %>%
+  separate(cat,sep = " ",into =transitions ) %>%
+  mutate_at(vars(starts_with("q")), as.numeric) %>%
+  mutate_at(vars(starts_with("q")), ~.+1)
+  
+# make list of model matrices
+rj_model_matrix<-list()
+
+for(i in 1:nrow(rj_models)){
+  rj_model_matrix[[i]]<-rj_models %>%
+    filter(rank==i) %>%
+    pivot_longer(-rank,names_to="parameter", values_to = "rate") %>%
+    mutate(from=str_sub(parameter, 2,2), to=str_sub(parameter, 3,3)) %>%
+    arrange(from) %>%
+  select(from, to, rate) %>%
+  pivot_wider(names_from = to, values_from = rate) %>%
+  select(from, .$from) %>%
+  column_to_rownames("from")
+}
+
+# plot first 3 models
+for(i in 1:3) {
+  qgraph(rj_model_matrix[[i]],
+       #nodes:
+         shape="rectangle",
+         vsize=10,
+         node.height=0.5,
+         label.cex=1.25,
+         label.color=traits_colors[rownames(rj_model_matrix[[i]])],
+       
+       # edges:
+         edge.labels=T,
+         edge.label.cex=1,
+         #minimum=0.03, # threshold for edges to include
+         edge.width=1.5,
+         posCol="black",
+         fade=F,
+         #colFactor=0.5,
+         # themes and layout:
+         # theme="TeamFortress",
+         #layout="circular",
+         directed=TRUE)
+}
+
+} else {
+  print("No Reverse Jump used")
+}
 ```
 

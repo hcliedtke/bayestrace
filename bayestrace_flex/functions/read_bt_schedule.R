@@ -21,11 +21,14 @@ read_bt_schedule<-function(x){
   ##
   for(i in 1:length(sched_files)){
     
+    ## find 1st line of table
+    first_line=grep(pattern = "^Rate Tried", read_lines(sched_paths[i], n_max=20))-1
+    
     ## get header info
-    header_list[[i]]<-read_tsv(file = sched_paths[i], n_max = 2, skip = 1, col_names = FALSE) %>%
+    header_list[[i]]<-read_tsv(file = sched_paths[i], n_max = first_line-1, skip = 1, col_names = FALSE) %>%
       deframe()
     ## 
-    schedule_list[[i]]<-read_tsv(file = sched_paths[i],skip = 3) %>%
+    schedule_list[[i]]<-read_tsv(file = sched_paths[i], skip = first_line, col_names = TRUE) %>%
       select(-starts_with("..."))
   }
   
