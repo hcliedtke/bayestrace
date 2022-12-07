@@ -4,8 +4,8 @@ A reporting and diagnostics tool for BayesTraits
 
 ## Example Dashboards
 
-* Multistates - Ancestral States reconstruction (dashboard)[bayestrace_flex/examples/Artiodactyl_multistates_fossilised/bayestrace_flex_fossilised.html]
-* Multistates - Reverse Jump model reduction (dashboard)[bayestrace_flex/examples/Artiodactyl_reduction/bayestrace_flex_reduction.html]
+* Multistates - Ancestral States reconstruction [dashboard](./bayestrace_flex/examples/Artiodactyl_multistates_fossilised/bayestrace_flex_fossilised.html)
+* Multistates - Reverse Jump model reduction [dashboard](./bayestrace_flex/examples/Artiodactyl_reduction/bayestrace_flex_reduction.html)
 
 ## Usage
 
