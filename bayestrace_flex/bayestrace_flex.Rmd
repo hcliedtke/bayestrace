@@ -56,7 +56,7 @@ samples_max=10000
 #dir_path="./examples/Artiodactyl_multistates_fossilised/"
 
 # model reduction example
-dir_path="./examples/Artiodactyl_reduction/"
+dir_path="./examples/Artiodactyl_reduction/" 
 
 
 ```
