@@ -286,21 +286,24 @@ qgraph(mean_transition_rates,
        #nodes:
          shape="rectangle",
          vsize=10,
-         node.height=0.5,
-         label.cex=1.25,
+         node.height=1,
+         label.cex=3,
+         label.scale = TRUE,
          label.color=traits_colors[rownames(mean_transition_rates)],
        
        # edges:
          edge.labels=T,
-         edge.label.cex=1,
+         edge.label.cex=2,
+         edge.label.bg="grey90",
          #minimum=0.03, # threshold for edges to include
-         edge.width=1.5,
+         #edge.width=1.5,
          posCol="black",
          fade=T,
-         colFactor=0.5,
-         # themes and layout:
+       
+       # themes and layout:
          # theme="TeamFortress",
-         #layout="circular",
+         layout="circular",
+         normalize=TRUE,
          directed=TRUE)
 ```
 
@@ -523,6 +526,7 @@ zero_matrix<-transition_rates %>%
   select(`% Non-Zero`, transitions) %>%
   mutate(transitions=str_remove(transitions, "q*")) %>%
   separate(transitions, into=c("from","to"), sep = 1, remove = TRUE) %>%
+  mutate(`% Non-Zero`=round(`% Non-Zero`,1)) %>%
   pivot_wider(names_from = to, values_from = `% Non-Zero`) %>%
   select(from, .$from) %>%
   column_to_rownames("from")
@@ -532,21 +536,24 @@ qgraph(zero_matrix,
        #nodes:
          shape="rectangle",
          vsize=10,
-         node.height=0.5,
-         label.cex=1.25,
+         node.height=1,
+         label.cex=3,
+         label.scale = TRUE,
          label.color=traits_colors[rownames(zero_matrix)],
        
        # edges:
          edge.labels=T,
-         edge.label.cex=1,
+         edge.label.cex=2,
+         edge.label.bg="grey90",
          #minimum=0.03, # threshold for edges to include
-         edge.width=1.5,
+         #edge.width=1.5,
          posCol="black",
          fade=T,
-         colFactor=0.5,
-         # themes and layout:
+       
+       # themes and layout:
          # theme="TeamFortress",
-         #layout="circular",
+         layout="circular",
+         normalize=TRUE,
          directed=TRUE)
 } else {
   print("No Reverse Jump used")
@@ -584,31 +591,37 @@ for(i in 1:nrow(rj_models)){
 }
 
 # plot first 3 models
+par(mfrow=c(1,3))
 for(i in 1:3) {
   qgraph(rj_model_matrix[[i]],
        #nodes:
          shape="rectangle",
          vsize=10,
-         node.height=0.5,
-         label.cex=1.25,
+         node.height=1,
+         label.cex=3,
+         label.scale = TRUE,
          label.color=traits_colors[rownames(rj_model_matrix[[i]])],
        
        # edges:
          edge.labels=T,
-         edge.label.cex=1,
+         edge.label.cex=5,
+         edge.label.bg="grey90",
          #minimum=0.03, # threshold for edges to include
-         edge.width=1.5,
+         #edge.width=1.5,
          posCol="black",
          fade=F,
-         #colFactor=0.5,
+       
          # themes and layout:
          # theme="TeamFortress",
-         #layout="circular",
+         layout="circular",
+         normalize=TRUE,
          directed=TRUE)
 }
 
 } else {
   print("No Reverse Jump used")
 }
+par(mfrow=c(1,1))
+
 ```
 
