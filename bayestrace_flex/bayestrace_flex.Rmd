@@ -1,42 +1,36 @@
 ---
-title: "BayesTrace"
+title: "BayesTrace v1.0"
 output:
-  
   flexdashboard::flex_dashboard:
     vertical_layout: fill
+    css: www/styles.css
 editor_options: 
   chunk_output_type: console
 ---
             
-<style>
-.navbar {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  display: block;
-  position: fixed;
-  width: 150px; /* Modify the width of the sidebar */
-}
-body {
-          margin-left: 150px; /* Add a left margin to avoid content overlay */
-          padding-top:10 px
-}
-</style>
+<div class="header">
+  <img src="www/bt_logo_copy.png"/>
+    <div class="headertext">
+   </div>
+</div> 
 
 ```{r setup, include=FALSE}
 # Load required packages
 library(flexdashboard)
 library(tidyverse)
+library(plotly)
 library(reactable)
 library(qgraph)
 library(coda)
 library(ape)
 library(RColorBrewer)
+library(wesanderson)
 
 # Load custom functions
 #setwd("~/Documents/bayestrace/bayestrace_flex/")
 source("./functions/read_bt_log.r")
 source("./functions/read_bt_schedule.r")
+source("./functions/read_bt_stones.r")
 
 
 # Define Colour Scheme
@@ -56,12 +50,26 @@ samples_max=10000
 #dir_path="./examples/Artiodactyl_multistates_fossilised/"
 
 # model reduction example
-dir_path="./examples/Artiodactyl_reduction/" 
+#dir_path="./examples/Artiodactyl_reduction/"
 
+# covarion example
+dir_path="./examples/Bird_covarion/"
+
+
+# global themes
+theme_set(theme_bw())
+
+# run colors
+run_colors <- list(
+  "1"   = "#00798c",
+  "2"    = "#d1495b",
+  "3" = "#edae49",
+  "4"  = "#66a182",
+  "5"   = "#2e4057",
+  "6"   = "#8d96a3"
+)
 
 ```
-
-
 
 
 
@@ -73,20 +81,33 @@ Data input {data-orientation=columns}
 bt<-read_bt_log(dir_path)
 
 # load input tree
-tre<-read.nexus(file = paste0(dir_path,"/",bt$header %>%
-                                filter(Options=="Tree File Name:") %>%
+tre<-read.nexus(file = paste0(dir_path,"/",
+                              bt$header %>%
+                                filter(Options=="Tree File Name") %>%
                                 pull(2))
                 )
 
+## if multiPhylo, pull out only first tree
+if(class(tre)=="multiPhylo"){
+  tre<-tre[[1]]
+}
+
+
 # load traits file 
 dat<-read_tsv(file = paste0(dir_path,"/",bt$header %>%
-                                filter(Options=="Data File Name:") %>%
+                                filter(Options=="Data File Name") %>%
                                 pull(2)),
               col_names = c("Species","Trait")
               )
 
 # load schedule files
 acceptance_rate<-read_bt_schedule(dir_path)
+
+# load stones files
+if(list.files(dir_path, pattern = "Stones.txt") %>%
+   length() > 0){
+  stones<-read_bt_stones(dir_path)
+}
 ```
 
 ```{r}
@@ -153,43 +174,57 @@ bt$tree %>%
 MCMC traces {data-orientation=columns}
 =====================================  
     
-Column {data-width=75%}
+Column {data-width=60%}
 -----------------------------------------------------------------------
 
 ### ML Chain
-This plot shows 10,000 random iterations of the Maximum Likelihood chains
-```{r}
-bt$chain_clean %>%
+```{r fig.cap="This plot shows 10,000 random iterations of the Maximum Likelihood chains"}
+gg_chain<-bt$chain_clean %>%
   ggplot(aes(x=Iteration, y=Lh, color=`Run ID`)) +
   geom_line(alpha=0.5) +
   geom_smooth(se = FALSE) +
-  theme_bw() +
+  scale_color_manual(values=wes_palette(name="Darjeeling1", type="discrete")) +
   theme(legend.position = "bottom")
+
+# plotly-fy
+ggplotly(gg_chain) %>%
+  layout(legend = list(orientation = "h", x = 0, y =-0.2))
+
 ```
 
-Column {data-width=25%}
+Column {data-width=40%}
 -----------------------------------------------------------------------
 
 ### ML Chain Density
 
 ```{r}
-bt$chain_clean %>%
+gg_chain_density<-bt$chain_clean %>%
   ggplot(aes(x=Lh, fill=`Run ID`)) +
-  geom_density(alpha=0.30, color=NA) +
-  theme_bw() +
-  theme(legend.position = "bottom")
+  geom_density(alpha=0.5, color=NA) +
+  scale_fill_manual(values=wes_palette(name="Darjeeling1", type="discrete")) +
+  theme(legend.position = "none")
+
+# plotly-fy
+ggplotly(gg_chain_density)
+
 ```
 
 ### ML Chain violins
 
 ```{r}
-bt$chain_clean %>%
+gg_chain_violins<-bt$chain_clean %>%
   ggplot(aes(x=`Run ID`, y=Lh, fill=`Run ID`, alpha=0.5)) +
   geom_violin(trim = FALSE) +
-  geom_boxplot(width = 0.2) +
-  theme_bw() +
+  geom_boxplot(width = 0.1) +
+  scale_fill_manual(values=wes_palette(name="Darjeeling1", type="discrete")) +
   labs(x="", y="Log Likelihood") +
   theme(legend.position = "none")
+
+## plotly-fy
+ggplotly(gg_chain_violins) %>%
+  layout(boxgap = 0.9)
+  
+
 ```
 
 
@@ -334,6 +369,7 @@ bt$chain_clean %>%
 Node Reconstructions {data-orientation=columns}
 =====================================  
 
+
 ```{r}
 if(is.null(bt$tags)) {
   print("No nodes were set for ancestral state reconstrucitions")
@@ -365,28 +401,15 @@ anc_df<-anc_df %>%
       pivot_wider(values_from = value, names_from = Prob),
     by="Node")
 
-## add trait data to first tree
-tre_1<-tre[[1]]
-tre_1$traits<-dat %>%
-  arrange(match(Species, tre_1$tip.label)) %>%
+## add trait data to tree
+tre$traits<-dat %>%
+  arrange(match(Species, tre$tip.label)) %>%
   pull(Trait)
 }
 ```
 
-
-### Phylogeny {data-height=80%}
-
-```{r fig.width=12}
-if(exists("tre_1")){
-  plot(tre_1, no.margin = T, tip.color = traits_colors[tre_1$traits])
-  nodelabels(node = anc_df$node_num,pie = anc_df %>% select(unique(dat$Trait)),
-             cex = 1, piecol=traits_colors)
-  legend("topleft", legend = names(traits_colors), pch=15, col=traits_colors, bty="n")
-} else {
-  plot(tre[[1]], no.margin = T)
-}
-```
-
+Column {data-width=25%}
+-----------------------------------------------------------------------
 
 ### Node Reconstruction / Fossilisation {data-height=20%}
 
@@ -400,6 +423,30 @@ if(exists("anc_df")){
   print("No nodes were set for ancestral state reconstrucitions")
 }
 
+```
+
+
+Column {data-width=75%}
+-----------------------------------------------------------------------
+
+### Phylogeny {data-height=100%}
+
+```{r fig.width=12}
+if(!is.null(bt$tags)){
+  plot(tre,
+       no.margin = T,
+       tip.color = traits_colors[tre$traits],
+       cex=ifelse(length(tre$tip.label)>30,0.1,1))
+  nodelabels(node = anc_df$node_num,pie = anc_df %>%
+               select(unique(dat$Trait)),
+             cex = 1,
+             piecol=traits_colors)
+  legend("topleft", legend = names(traits_colors), pch=15, col=traits_colors, bty="n")
+} else {
+  plot(tre,
+       no.margin = T,
+       cex=ifelse(length(tre$tip.label)>30,0.2,1))
+}
 ```
 
 
@@ -439,10 +486,10 @@ acceptance_rate$schedule %>%
 RevJ Model Reduction {data-orientation=columns}
 =====================================  
 
-Row {data-height=20%}
+Row
 -----------------------------------------------------------------------
 
-### Reverse Jump Model Sampling {data-height=20%}
+### Reverse Jump Model Sampling {data-height=30%}
 
 ```{r}
 ## check if RJ has been used
@@ -477,7 +524,7 @@ transition_rates %>%
 
 ```
 
-### Reverse Jump Model Ranking {data-height=20%}
+### Reverse Jump Model Ranking - Table {data-height=30%}
 
 ```{r}
 if(rj){
@@ -488,20 +535,18 @@ if(rj){
   arrange(desc(`N sampled`)) %>%
   mutate_if(is.numeric, round, 2) 
 
-# plot
+# plot table
 model_ranking %>% 
   reactable()
 }else {
   print("No Reverse Jump used")
 }
+
 ```
 
-Row {data-height=80%}
------------------------------------------------------------------------
+### Reverse Jump Model Ranking - Barchart {data-height=40%}
 
-### Reverse Jump Model Ranking
-
-```{r}
+```{r fig.width=12}
 if(rj){
   bt$chain_clean %>%
   count(`Model string`, name = "N sampled") %>%
@@ -515,9 +560,13 @@ if(rj){
 }
 ```
 
+
+Row
+-----------------------------------------------------------------------
+
 ### % Non-zero transitions
 
-```{r}
+```{r fig.cap="edge numbers show % of the posterior the transition was non-zero"}
 
 if(rj){
   ### Plot transition network for 0% non-zero 
@@ -561,9 +610,9 @@ qgraph(zero_matrix,
 
 ```
 
-### Acyclic diagrams of three most frequently sampled model
+### Three most frequently sampled model
 
-```{r}
+```{r fig.cap="edge numbers show transition rates"}
 if(rj){
 
 transitions<-na.omit(str_extract(colnames(bt$chain_clean), "q\\w+"))
@@ -622,6 +671,137 @@ for(i in 1:3) {
   print("No Reverse Jump used")
 }
 par(mfrow=c(1,1))
+
+```
+
+Model Comparison - LogBF
+=====================================  
+
+```{r}
+# check if stones file exists
+st<-exists("stones")
+```
+
+
+Column {data-width=50%}
+-----------------------------------------------------------------------
+
+### Stepping Stone Sampler {data-height=90%}
+
+```{r}
+if(st){
+  stones$header %>%
+    reactable()
+} else {
+  print("No stepping stones sampler set")
+}
+```
+
+
+### Log Marginal Likelihood {data-height=7%}
+
+```{r}
+if(st){
+  stones$`marginal likelihood` %>%
+    mutate_if(is.numeric, round, 2) %>%
+    reactable(defaultPageSize = 2)
+} else {
+  print("No stepping stones sampler set")
+}
+
+```
+
+### Log Bayes Factor {data-height=3%}
+
+```{r}
+if(st){
+  
+## calculate log Bayes Factor (x1=complex model, x2=simple model)
+LogBF<-function(mod1,mod2){2*(mod1-mod2)}
+
+### get complex model
+mod1<-bt$header %>%
+  filter(Options=="Using a covarion model") %>%
+  pivot_longer(-1) %>%
+  filter(value=="True") %>%
+  slice_head(n=1) %>% ## keep only one if multiple
+  pull(name)
+
+### get simple model
+mod2<-bt$header %>%
+  filter(Options=="Using a covarion model") %>%
+  pivot_longer(-1) %>%
+  filter(value=="False") %>%
+  slice_head(n=1) %>% ## keep only one if multiple
+  pull(name)
+
+### calculate logBF
+log_bf<-LogBF(mod1=stones$`marginal likelihood` %>%
+                                        select(all_of(mod1)) %>% pull(),
+                                      mod2=stones$`marginal likelihood` %>%
+                                        select(all_of(mod2)) %>% 
+                                        pull()) %>%
+                                        round(2)
+
+# return Bayes Factor
+cat(paste0("Log Bayes Factor: ",LogBF(mod1=stones$`marginal likelihood` %>%
+                                        select(all_of(mod1)) %>% pull(),
+                                      mod2=stones$`marginal likelihood` %>%
+                                        select(all_of(mod2)) %>% 
+                                        pull()) %>%
+                                        round(2),
+            "\nThe complex model is a ",ifelse(log_bf>0,"better","worse")," fit.")
+            )
+} else {
+  print("No stepping stones sampler set")
+}
+```
+
+
+Column {data-width=50%}
+-----------------------------------------------------------------------
+
+### Stone Power
+
+```{r fig.width=12}
+if(st){
+  stones$stones %>%
+    ggplot(aes(x=`Stone No`, y=Power, colour=`Run ID`)) +
+    geom_line() +
+    theme(legend.position = "bottom")
+} else {
+  print("No stepping stones sampler set")
+}
+
+```
+
+
+### Stone Marginal Likelihood
+
+```{r fig.width=12}
+if(st){
+  stones$stones %>%
+    ggplot(aes(x=`Stone No`, y=`Stone MLh`, colour=`Run ID`)) +
+    geom_line() +
+    theme(legend.position = "bottom")
+} else {
+  print("No stepping stones sampler set")
+}
+
+```
+
+
+### Running Marginal Likelihood
+
+```{r fig.width=12}
+if(st){
+  stones$stones %>%
+    ggplot(aes(x=`Stone No`, y=`Running MLh`, colour=`Run ID`)) +
+    geom_line() +
+    theme(legend.position = "bottom")
+} else {
+  print("No stepping stones sampler set")
+}
 
 ```
 
