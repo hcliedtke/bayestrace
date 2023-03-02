@@ -27,7 +27,7 @@ library(RColorBrewer)
 library(wesanderson)
 
 # Load custom functions
-#setwd("~/Documents/bayestrace/bayestrace_flex/")
+#setwd("~/Documents/git_projects/bayestrace/bayestrace_flex/")
 source("./functions/read_bt_log.r")
 source("./functions/read_bt_schedule.r")
 source("./functions/read_bt_stones.r")
@@ -47,10 +47,10 @@ samples_max=10000
 #dir_path="./examples/Artiodactyl_multistates_anc_states/"
 
 # fossilised example
-#dir_path="./examples/Artiodactyl_multistates_fossilised/"
+dir_path="./examples/Artiodactyl_multistates_fossilised/"
 
 # model reduction example
-dir_path="./examples/Artiodactyl_reduction/"
+#dir_path="./examples/Artiodactyl_reduction/"
 
 # covarion example
 #dir_path="./examples/Bird_covarion/"
@@ -512,7 +512,7 @@ anc_df<-bt$tags %>%
 node_num<-c()
 for(i in 1:nrow(anc_df)){
   tips<-unlist(str_split(anc_df$Species[i], " "))
-  node_num[i]<-getMRCA(tre[[1]], tips)
+  node_num[i]<-getMRCA(tre, tips)
 }
 
 ## add node numbers and extract mean probabilities per node state

@@ -30,7 +30,7 @@ read_bt_log<-function(x){
                skip=first_line,
                n_max=last_line-1) %>%
       map_chr(~ .x %>% str_replace_all("^ +|^\t+| +$|\t$", "")) %>% # remove leading and trailing spaces
-      map_chr(~ .x %>% str_replace_all("(:  )+|: - |:\t", ";")) %>% # unify column delimiter
+      map_chr(~ .x %>% str_replace_all("(:  )+|: - |:\t|\t", ";")) %>% # unify column delimiter
       map_chr(~ .x %>% str_replace_all("; +|;\t+| +;|\t;", ";")) %>% # remove leading and trailing spaces
       paste0(., "\n",collapse = "\n") %>%
       read_delim(delim=";",col_names = col_names) %>%
@@ -153,8 +153,11 @@ read_bt_log<-function(x){
 
 
 ## test
-#setwd("~/Documents/GitHub/bayestrace/bayestrace_flex/")
-#x="./test_data/"
-#test<-read_bt_log(x)
-#test$chain
-#test$header
+#. setwd("~/Documents/GitHub/bayestrace/bayestrace_flex/")
+#. x="./examples/Artiodactyl_multistates_fossilised/"
+#. test<-read_bt_log(x)
+#. test$chain
+#. test$header
+#. test$priors
+#. test$tags
+#. test$recon
