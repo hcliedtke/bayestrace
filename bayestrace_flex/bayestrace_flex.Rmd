@@ -50,10 +50,10 @@ samples_max=10000
 #dir_path="./examples/Artiodactyl_multistates_fossilised/"
 
 # model reduction example
-#dir_path="./examples/Artiodactyl_reduction/"
+dir_path="./examples/Artiodactyl_reduction/"
 
 # covarion example
-dir_path="./examples/Bird_covarion/"
+#dir_path="./examples/Bird_covarion/"
 
 
 # global themes
@@ -123,19 +123,43 @@ traits_colors<-sample(brewer.pal(8,"Dark2"), length(unique(dat$Trait)))
 names(traits_colors)<-unique(dat$Trait)
 ```
 
+```{r}
+# define "mode". I.e. are multiple runs the same, or are they run with different settings 
+comparison_mode<-bt$header %>%
+  filter(if_any(2:ncol(.), ~ .x != bt$header[,2])) %>%
+  filter(!Options %in% c("Log File Name","Seed", "Schedule File")) %>%
+  nrow()>0
+```
+
 Column {data-width=60%}
 -----------------------------------------------------------------------
 
 ### BayesTraits Header
 
 ```{r}
+# print table, highlighting differences
 bt$header %>%
-  reactable(defaultPageSize = 50)
+  mutate(not_same=if_any(2:ncol(.), ~ .x != bt$header[,2])) %>% # identify columns that are not the same
+  reactable(
+    defaultPageSize = 50,
+    defaultColDef = colDef(
+      style = function(value, index) {
+        if (.$not_same[index]) {
+          color="red"
+        } else {
+          color <- "black"
+        } 
+        list(color = color)
+      }
+    ),
+    columns = list(
+      not_same = colDef(show=FALSE)
+    )
+  )
 ```
 
 Column {data-width=40%}
 -----------------------------------------------------------------------
-
 
 ### Restrictions
 
@@ -286,26 +310,49 @@ Row
 
 ### Root State
 
-```{r fig.cap='Root state probabilities'}
-bt$chain_clean %>%
+```{r fig.cap='Root state probabilities for each run'}
+
+if(comparison_mode) {
+  bt$chain_clean %>%
+  group_by(`Run ID`) %>%
   select(starts_with("Root")) %>%
   summarise_all(mean) %>%
-  pivot_longer(everything(),names_to="State",values_to="prob") %>%
+  pivot_longer(-`Run ID`,names_to="State",values_to="prob") %>%
   mutate(State=str_remove_all(State, "Root P\\(|\\)")) %>%
-  ggplot(aes(x="",y=prob, fill=State)) +
+  ggplot(aes(x=`Run ID`,y=prob, fill=State)) +
   scale_fill_manual(values = traits_colors) +
   geom_bar(stat="identity") +
   coord_polar("y") +
   theme_void() + 
   theme(legend.position = "bottom")
-```
+} else {
+  bt$chain_clean %>%
+     select(starts_with("Root")) %>%
+     summarise_all(mean) %>%
+     pivot_longer(everything(),names_to="State",values_to="prob") %>%
+     mutate(State=str_remove_all(State, "Root P\\(|\\)")) %>%
+     ggplot(aes(x="",y=prob, fill=State)) +
+     scale_fill_manual(values = traits_colors) +
+     geom_bar(stat="identity") +
+     coord_polar("y") +
+     theme_void() + 
+     theme(legend.position = "bottom")
 
+}
+
+
+
+```
 
 ### Transition Rates Network
 
 ```{r fig.cap='Mean transition rates'}
-# calculate mean transition rates based on all chains
-mean_transition_rates<-bt$chain_clean %>%
+
+# calculate mean transition rates based on all concatenated chains if the runs are the same, if not, then transitions are shown for each chain separately
+
+if(!comparison_mode){
+  
+  mean_transition_rates<-bt$chain_clean %>%
     select(starts_with("q")) %>%
     summarise_all(mean) %>%
     pivot_longer(everything(),names_to="parameter", values_to = "rate") %>%
@@ -316,9 +363,11 @@ mean_transition_rates<-bt$chain_clean %>%
   select(from, .$from) %>%
   column_to_rownames("from")
   
-# plot
-qgraph(mean_transition_rates,
-       #nodes:
+  # plot
+  
+  qgraph(mean_transition_rates,
+       
+       # nodes:
          shape="rectangle",
          vsize=10,
          node.height=1,
@@ -340,6 +389,66 @@ qgraph(mean_transition_rates,
          layout="circular",
          normalize=TRUE,
          directed=TRUE)
+
+} else {
+  
+  mean_transition_rates<-bt$chain_clean %>%
+    group_by(`Run ID`) %>%
+    select(starts_with("q")) %>%
+    summarise_all(mean) %>%
+    pivot_longer(-`Run ID`,names_to="parameter", values_to = "rate") %>%
+    mutate(from=str_sub(parameter, 2,2), to=str_sub(parameter, 3,3)) %>%
+    arrange(from) %>%
+    select(-parameter) %>%
+    group_split(`Run ID`,.keep = F) %>%
+    setNames(sort(unique(bt$chain_clean$`Run ID`))) %>%
+    as.list()
+
+  for(i in 1:length(mean_transition_rates)){
+    mean_transition_rates[[i]]<-mean_transition_rates[[i]] %>%
+      pivot_wider(names_from = to, values_from = rate) %>%
+  select(from, .$from) %>%
+  column_to_rownames("from")
+  }  
+  
+  # plot
+  par(mfrow=c(1,length(mean_transition_rates)))
+for(i in 1:length(mean_transition_rates)){
+  
+  qgraph(mean_transition_rates[[i]],
+       # title:
+         title=names(mean_transition_rates)[i],
+         
+       # nodes:
+         shape="rectangle",
+         vsize=10,
+         node.height=1,
+         label.cex=3,
+         label.scale = TRUE,
+         label.color=traits_colors[rownames(mean_transition_rates[[i]])],
+       
+       # edges:
+         edge.labels=T,
+         edge.label.cex=2,
+         edge.label.bg="grey90",
+         #minimum=0.03, # threshold for edges to include
+         #edge.width=1.5,
+         posCol="black",
+         fade=T,
+       
+       # themes and layout:
+         # theme="TeamFortress",
+         layout="circular",
+         normalize=TRUE,
+         directed=TRUE)
+}
+  
+  
+}
+
+  
+
+
 ```
 
 
@@ -350,19 +459,37 @@ Row
 ### Transition Rates Densities
 
 ```{r fig.cap='Density distributions of rate transition estimates. Line show mean rates.', fig.width=12}
-bt$chain_clean %>%
+
+if(comparison_mode) {
+  bt$chain_clean %>%
+  group_by(`Run ID`) %>%
+  select(starts_with("q")) %>%
+  pivot_longer(-`Run ID`, names_to = "transition", values_to = "rate") %>%
+  ggplot(aes(x=rate)) +
+  geom_density(alpha=0.75, fill="grey50",color=NA) +
+  geom_vline(data=. %>%
+               group_by(`Run ID`, transition) %>%
+    summarise(rate=mean(rate)),
+    aes(xintercept=rate, linetype="dashed")) +
+  facet_grid(`Run ID`~transition, scales = "free") +
+  theme_bw() +
+  theme(legend.position = "none")
+} else {
+  
+  bt$chain_clean %>%
   select(starts_with("q")) %>%
   pivot_longer(everything(), names_to = "transition", values_to = "rate") %>%
   ggplot(aes(x=rate)) +
   geom_density(alpha=0.75, fill="grey50",color=NA) +
-  geom_vline(data=bt$chain_clean %>%
-    select(starts_with("q")) %>%
-    summarise_all(mean) %>%
-      pivot_longer(everything(), names_to = "transition"),
-    aes(xintercept=value, linetype="dashed")) +
+  geom_vline(data=. %>%
+               group_by(transition) %>%
+    summarise(rate=mean(rate)),
+    aes(xintercept=rate, linetype="dashed")) +
   facet_wrap(~transition, scales = "free") +
   theme_bw() +
   theme(legend.position = "none")
+}
+
 
 ```
 
