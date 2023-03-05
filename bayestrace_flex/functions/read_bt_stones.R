@@ -13,6 +13,8 @@ read_bt_stones<-function(x){
   stones_files<-list.files(x, pattern = "Stones.txt")
   stones_paths<-list.files(x, pattern = "Stones.txt", full.names = TRUE)
   stones_names<-str_remove_all(stones_files, pattern="\\.Stones\\.txt")
+  stones_names_abbr<-abbreviate(stones_names,minlength=abbrev_length)
+  
   
   ## make empty lists
   header_list<-list()
@@ -37,7 +39,7 @@ read_bt_stones<-function(x){
       map_chr(~ .x %>% str_replace_all("; +|;\t+| +;|\t;", ";")) %>% # remove leading and trailing spaces
       paste0(., "\n",collapse = "\n") %>%
       read_delim(delim=";",
-                 col_names = c("Parameters",stones_names[i])) %>%
+                 col_names = c("Parameters",stones_names_abbr[i])) %>%
       discard(~all(is.na(.)))
     
     ## get stones iterations
@@ -49,7 +51,7 @@ read_bt_stones<-function(x){
     ## get marginal likelihood
     marLik_list[[i]]<-read_tsv(file = stones_paths[i],
                                  skip = last_line,
-                               col_names = c("marLik",stones_names[i]))
+                               col_names = c("marLik",stones_names_abbr[i]))
     
   }
   
@@ -64,7 +66,7 @@ read_bt_stones<-function(x){
     distinct()
   
   ### concatenate stones list into a single df 
-  names(stones_list)<-stones_names
+  names(stones_list)<-stones_names_abbr
   stones_df<-bind_rows(stones_list, .id="Run ID")
   
   

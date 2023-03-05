@@ -2,16 +2,18 @@
 
 ### arguments:
 # x: is the folder that contains one or more BayesTraits log files. Log files must end with .Log.txt
+# abbrev_length: number of characters to abbreviate run names (useful for neater visualization)
 
 ### output:
 # a list object with different tibbles for each section of the log header.
 
-read_bt_log<-function(x){
+read_bt_log<-function(x, abbrev_length=20){
   
   ## read file names
   log_files<-list.files(x, pattern = "Log.txt")
   log_paths<-list.files(x, pattern = "Log.txt", full.names = TRUE)
   log_names<-str_remove_all(log_files, pattern="\\.Log\\.txt")
+  log_names_abbr<-abbreviate(log_names,minlength=abbrev_length)
   
   ## make empty lists
   header_list<-list()
@@ -43,7 +45,7 @@ read_bt_log<-function(x){
     first_line=1
     last_line=grep(pattern = "^\\s+|^\\t+", read_lines(log_paths[i], n_max=100))[1]-2 # finds first line with a space or tab as the first character, then backtraces 2.
     
-    header_list[[i]]<-tabulate_section(log_paths[i], first_line, last_line, col_names=c("Options",log_names[i]))  
+    header_list[[i]]<-tabulate_section(log_paths[i], first_line, last_line, col_names=c("Options",log_names_abbr[i]))  
   
     
   ## get tags
@@ -54,7 +56,7 @@ read_bt_log<-function(x){
     
       tags_list[[i]]<-tabulate_section(log_paths[i], first_line, last_line,
                                        col_names=c("Tag","n","Species")) %>%
-        mutate(`Run ID`=log_names[i])
+        mutate(`Run ID`=log_names_abbr[i])
     }
     
   ## get restrictions
@@ -64,7 +66,7 @@ read_bt_log<-function(x){
       last_line=grep(pattern = "^\\w+", read_lines(log_paths[i], skip = first_line, n_max=100))[1]
       
       restrictions_list[[i]]<-tabulate_section(log_paths[i], first_line, last_line,
-                                               col_names=c("Transition",log_names[i]))
+                                               col_names=c("Transition",log_names_abbr[i]))
     }
   
     ## get priors
@@ -74,7 +76,7 @@ read_bt_log<-function(x){
       last_line=grep(pattern = "^\\w+", read_lines(log_paths[i], skip = first_line, n_max=100))[1]
       
       priors_list[[i]]<-tabulate_section(log_paths[i], first_line, last_line,
-                                         col_names=c("Transitions",log_names[i])) %>%
+                                         col_names=c("Transitions",log_names_abbr[i])) %>%
         drop_na()
     }
 
@@ -88,7 +90,7 @@ read_bt_log<-function(x){
       last_line=grep(pattern = "^\\w+", read_lines(log_paths[i], skip = first_line, n_max=100))[1]
       
       tree_list[[i]]<- tabulate_section(log_paths[i], first_line, last_line,
-                                        col_names=c("Parameter",log_names[i]))
+                                        col_names=c("Parameter",log_names_abbr[i]))
     }
       
     ## get reconstruction/fossilisation info
@@ -99,7 +101,7 @@ read_bt_log<-function(x){
       last_line=grep(pattern = "^\\w+", read_lines(log_paths[i], skip = first_line, n_max=100))[1]
       
       recon_list[[i]]<- tabulate_section(log_paths[i], first_line, last_line,
-                                        col_names=c("Parameter",log_names[i])) %>%
+                                        col_names=c("Parameter",log_names_abbr[i])) %>%
         separate(Parameter,into=c("node", "Node", "Tag"), sep=" ") %>%
         select(-node)
     }
@@ -118,7 +120,7 @@ read_bt_log<-function(x){
     
   
   ## add file names to chains and bind rows into a single df
-  names(chain_list)<-log_names
+  names(chain_list)<-log_names_abbr
   chain_df<-bind_rows(chain_list, .id="Run ID") # appends chains
 
   

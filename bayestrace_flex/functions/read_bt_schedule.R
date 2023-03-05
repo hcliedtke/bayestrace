@@ -13,6 +13,8 @@ read_bt_schedule<-function(x){
   sched_files<-list.files(x, pattern = "Schedule.txt")
   sched_paths<-list.files(x, pattern = "Schedule.txt", full.names = TRUE)
   sched_names<-str_remove_all(sched_files, pattern="\\.Schedule\\.txt")
+  sched_names_abbr<-abbreviate(sched_names,minlength=abbrev_length)
+  
   
   ## make empty lists
   header_list<-list()
@@ -33,10 +35,10 @@ read_bt_schedule<-function(x){
   }
   
   ## add file names to chains and bind rows into a single df
-  names(header_list)<-sched_names
+  names(header_list)<-sched_names_abbr
   header_df<-bind_rows(header_list, .id="Run ID")
   
-  names(schedule_list)<-sched_names
+  names(schedule_list)<-sched_names_abbr
   schedule_df<-bind_rows(schedule_list, .id="Run ID")
   
   

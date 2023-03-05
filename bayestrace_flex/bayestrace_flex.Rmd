@@ -26,14 +26,6 @@ library(ape)
 library(RColorBrewer)
 library(wesanderson)
 
-# Load custom functions
-#setwd("~/Documents/git_projects/bayestrace/bayestrace_flex/")
-source("./functions/read_bt_log.r")
-source("./functions/read_bt_schedule.r")
-source("./functions/read_bt_stones.r")
-
-
-# Define Colour Scheme
 
 # Define EXTRA burnin (proportion of chain to keep. Default is 1 (keep entire chain))
 burnin=1
@@ -41,13 +33,23 @@ burnin=1
 # Define how many (random) iterations to keep for plotting (reduces load, default = 10,000)
 samples_max=10000
 
+# Define length of run names (abbrevaitions needed for improved visualization)
+abbrev_length=20
+
+# Load custom functions
+#setwd("~/Documents/git_projects/bayestrace/bayestrace_flex/")
+source("./functions/read_bt_log.r")
+source("./functions/read_bt_schedule.r")
+source("./functions/read_bt_stones.r")
+
+
 # Define path to files
 
 # multistates example
 #dir_path="./examples/Artiodactyl_multistates_anc_states/"
 
 # fossilised example
-dir_path="./examples/Artiodactyl_multistates_fossilised/"
+#dir_path="./examples/Artiodactyl_multistates_fossilised/"
 
 # model reduction example
 #dir_path="./examples/Artiodactyl_reduction/"
@@ -55,6 +57,8 @@ dir_path="./examples/Artiodactyl_multistates_fossilised/"
 # covarion example
 #dir_path="./examples/Bird_covarion/"
 
+# discrete example
+dir_path="./examples/Primates_discrete/"
 
 # global themes
 theme_set(theme_bw())
@@ -111,10 +115,15 @@ if(list.files(dir_path, pattern = "Stones.txt") %>%
 ```
 
 ```{r}
-# remove burnin and downsample
+# remove burnin, downsample and abbreviate runs
 bt$chain_clean<-bt$chain %>%
   slice_tail(prop = burnin) %>%
   filter(row_number() %in% floor(seq(1, n(), length.out=samples_max)))
+
+acceptance_rate$schedule<-acceptance_rate$schedule  %>%
+  slice_tail(prop = burnin) %>%
+  filter(row_number() %in% floor(seq(1, n(), length.out=samples_max))) 
+
 ```
 
 ```{r}
@@ -229,7 +238,8 @@ gg_chain_density<-bt$chain_clean %>%
   theme(legend.position = "none")
 
 # plotly-fy
-ggplotly(gg_chain_density)
+ggplotly(gg_chain_density) %>%
+  layout(hovermode = "x unified")
 
 ```
 
@@ -238,14 +248,14 @@ ggplotly(gg_chain_density)
 ```{r}
 gg_chain_violins<-bt$chain_clean %>%
   ggplot(aes(x=`Run ID`, y=Lh, fill=`Run ID`, alpha=0.5)) +
-  geom_violin(trim = FALSE) +
+  geom_violin(trim = FALSE, aes(text=`Run ID`)) +
   geom_boxplot(width = 0.1) +
   scale_fill_manual(values=wes_palette(name="Darjeeling1", type="discrete")) +
   labs(x="", y="Log Likelihood") +
   theme(legend.position = "none")
 
 ## plotly-fy
-ggplotly(gg_chain_violins) %>%
+ggplotly(gg_chain_violins, tooltip = "text") %>%
   layout(boxgap = 0.9)
   
 
@@ -264,7 +274,7 @@ Column {data-width=50%}
 ESS<-bt$chain %>%
   select(`Run ID`,starts_with(c("Lh","q","Root"))) %>%
   group_by(`Run ID`) %>%
-  summarize_all(effectiveSize) %>%
+  summarize_all(.funs=function(x)ifelse(any(is.na(x)),NA,effectiveSize(x))) %>%
   ungroup() %>%
   pivot_longer(-`Run ID`, names_to = "Parameter", values_to="ESS") %>%
   pivot_wider(names_from = `Run ID`, values_from = ESS)
@@ -277,32 +287,85 @@ ESS %>%
     defaultColDef = colDef(
     style = function(value) {
       if (is.character(value)) {
-        color="black"
-      } else if (value > 2000) {
+        color <- "black"
+      } else if (!is.na(value) & value > 2000 ) {
         color <- "#008000"
-      } else if (value < 2000) {
+      } else if (!is.na(value) & value < 2000) {
         color <- "#e00000"
       } else {
-        color <- "#777"
+        color <- "black"
       }
-      list(color = color, fontWeight = "bold")
+      list(color = color)
     }
     )
   )
 
 ```
 
+### Mean Acceptance Rates
+
+```{r}
+# mean values
+acceptance_rate$schedule %>%
+  group_by(`Run ID`) %>%
+  select(`Rates - Accepted`, `Sample Ave Acceptance`, `Total Ave Acceptance`) %>%
+  summarise_all(mean) %>%
+  mutate_if(is.numeric, round, 2) %>%
+  reactable()
+```
+
+### Total Average Acceptance Rates
+```{r}
+# plot of total average acceptances
+gg_acc<-acceptance_rate$schedule %>%
+  group_by(`Run ID`) %>%
+  mutate(Iterations = 1:n(),
+         `Total Ave Acceptance`=`Total Ave Acceptance`*100) %>%
+  ggplot(aes(x=Iterations,y=`Total Ave Acceptance`, color=`Run ID`)) +
+  scale_color_manual(values=wes_palette(name="Darjeeling1", type="discrete")) +
+  labs(y="Acceptance (%)") +
+  geom_line() +
+  theme(legend.position = "none")
+  
+# plotly-fy
+ggplotly(gg_acc)
+```
+
+
+
 Column {data-width=50%}
 -----------------------------------------------------------------------
 
-### Autocorrelation
+### Maximum Likelohood Autocorrelation
 
 ```{r}
+# calculate auto correlations
+bt_acf<-list()
+for(i in unique(bt$chain_clean$`Run ID`)){
+  tmp_acf<-acf(plot=FALSE,
+               bt$chain_clean %>%
+                 filter(`Run ID`==i) %>%
+                 pull(Lh))
+  bt_acf[[i]]<-tibble(Lag=c(tmp_acf$lag), acf=c(tmp_acf$acf))
+}
+
+# plot
+gg_autocorr<-bind_rows(bt_acf,.id = "Run ID") %>%
+  ggplot(aes(x=Lag, y=acf, color=`Run ID`)) +
+  geom_hline(yintercept = 0, size=0.5) +
+  geom_point(size = 2) +
+  geom_segment(aes(xend = Lag, yend = 0), size = 0.75) +
+  scale_color_manual(values=wes_palette(name="Darjeeling1", type="discrete")) +
+  facet_wrap(~`Run ID`, ncol = 1) +
+  theme(legend.position = "none")
+
+#plotlyfy
+ggplotly(gg_autocorr)
 
 ```
 
 
-Rate Estimates {data-orientation=rows}
+Root State & Rate Estimates {data-orientation=rows}
 =====================================  
 
 Row
@@ -446,9 +509,6 @@ for(i in 1:length(mean_transition_rates)){
   
 }
 
-  
-
-
 ```
 
 
@@ -458,10 +518,10 @@ Row
 
 ### Transition Rates Densities
 
-```{r fig.cap='Density distributions of rate transition estimates. Line show mean rates.', fig.width=12}
+```{r fig.cap='Density distributions of rate transition estimates. Line show mean rates.'}
 
 if(comparison_mode) {
-  bt$chain_clean %>%
+  rate_density_gg<-bt$chain_clean %>%
   group_by(`Run ID`) %>%
   select(starts_with("q")) %>%
   pivot_longer(-`Run ID`, names_to = "transition", values_to = "rate") %>%
@@ -474,9 +534,12 @@ if(comparison_mode) {
   facet_grid(`Run ID`~transition, scales = "free") +
   theme_bw() +
   theme(legend.position = "none")
+  
+  #plotlyfy
+  ggplotly(rate_density_gg)
 } else {
   
-  bt$chain_clean %>%
+  rate_density_gg<-bt$chain_clean %>%
   select(starts_with("q")) %>%
   pivot_longer(everything(), names_to = "transition", values_to = "rate") %>%
   ggplot(aes(x=rate)) +
@@ -488,6 +551,9 @@ if(comparison_mode) {
   facet_wrap(~transition, scales = "free") +
   theme_bw() +
   theme(legend.position = "none")
+  
+  #plotlyfy
+  ggplotly(rate_density_gg)
 }
 
 
@@ -535,10 +601,10 @@ tre$traits<-dat %>%
 }
 ```
 
-Column {data-width=25%}
+Column {data-width=30%}
 -----------------------------------------------------------------------
 
-### Node Reconstruction / Fossilisation {data-height=20%}
+### Node Reconstruction / Fossilisation
 
 ```{r}
 if(exists("anc_df")){
@@ -553,10 +619,10 @@ if(exists("anc_df")){
 ```
 
 
-Column {data-width=75%}
+Column {data-width=70%}
 -----------------------------------------------------------------------
 
-### Phylogeny {data-height=100%}
+### Phylogeny
 
 ```{r fig.width=12}
 if(!is.null(bt$tags)){
@@ -574,39 +640,6 @@ if(!is.null(bt$tags)){
        no.margin = T,
        cex=ifelse(length(tre$tip.label)>30,0.2,1))
 }
-```
-
-
-Acceptance Rates {data-orientation=columns}
-=====================================  
-
-
-### Mean Acceptance Parameters {data-height=20%}
-
-```{r}
-# mean values
-acceptance_rate$schedule %>%
-  group_by(`Run ID`) %>%
-  summarise_all(mean) %>%
-  mutate_if(is.numeric, round, 2) %>%
-  reactable()
-```
-
-### Acceptance Parameters Traces {data-height=80%}
-
-```{r fig.width=12}
-# plot
-acceptance_rate$schedule %>%
-  group_by(`Run ID`) %>%
-  filter(row_number() %in% floor(seq(1, n(), length.out=samples_max/2))) %>% # downsample
-  mutate(iter = 1:n()) %>%
-  pivot_longer(-c(`Run ID`, iter)) %>%
-  ggplot(aes(x=iter, y=value, color=`Run ID`)) +
-  geom_line(alpha=0.5) +
-  labs(x="Iterations", y="") +
-  facet_wrap(~name, scales = "free_y") +
-  theme_bw() +
-  theme(legend.position = "bottom")
 ```
 
 
