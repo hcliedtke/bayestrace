@@ -91,19 +91,36 @@ tre<-read.nexus(file = paste0(dir_path,"/",
                                 pull(2))
                 )
 
-## if multiPhylo, pull out only first tree
+## if multiPhylo, get majority rule consensus tree
 if(class(tre)=="multiPhylo"){
-  tre<-tre[[1]]
+  tre<-consensus(tre, p = 0.5)
 }
 
+# define run mode
+run_mode<-case_when(
+  any(str_detect(bt$header, "Discrete")) ~ "Discrete",
+  any(str_detect(bt$header, "MultiState")) ~ "MultiState"
+  )
 
-# load traits file 
-dat<-read_tsv(file = paste0(dir_path,"/",bt$header %>%
+
+# load traits file
+
+if(run_mode=="MultiState") {
+  dat<-read_tsv(file = paste0(dir_path,"/",bt$header %>%
                                 filter(Options=="Data File Name") %>%
                                 pull(2)),
               col_names = c("Species","Trait")
               )
-
+}
+if(run_mode=="Discrete") {
+  dat<-read_tsv(file = paste0(dir_path,"/",bt$header %>%
+                                filter(Options=="Data File Name") %>%
+                                pull(2)),
+              col_names = c("Species","Trait1","Trait2")
+              ) %>%
+    mutate(Trait=paste(Trait1, Trait2, sep=","))
+}
+ 
 # load schedule files
 acceptance_rate<-read_bt_schedule(dir_path)
 
@@ -381,11 +398,11 @@ if(comparison_mode) {
   select(starts_with("Root")) %>%
   summarise_all(mean) %>%
   pivot_longer(-`Run ID`,names_to="State",values_to="prob") %>%
-  mutate(State=str_remove_all(State, "Root P\\(|\\)")) %>%
+  mutate(State=str_remove_all(State, ".*P\\(|\\)")) %>%
   ggplot(aes(x=`Run ID`,y=prob, fill=State)) +
-  scale_fill_manual(values = traits_colors) +
   geom_bar(stat="identity") +
   coord_polar("y") +
+  scale_fill_manual(values = traits_colors) +
   theme_void() + 
   theme(legend.position = "bottom")
 } else {
@@ -393,11 +410,11 @@ if(comparison_mode) {
      select(starts_with("Root")) %>%
      summarise_all(mean) %>%
      pivot_longer(everything(),names_to="State",values_to="prob") %>%
-     mutate(State=str_remove_all(State, "Root P\\(|\\)")) %>%
+     mutate(State=str_remove_all(State, ".*P\\(|\\)")) %>%
      ggplot(aes(x="",y=prob, fill=State)) +
-     scale_fill_manual(values = traits_colors) +
      geom_bar(stat="identity") +
      coord_polar("y") +
+     scale_fill_manual(values = traits_colors) +
      theme_void() + 
      theme(legend.position = "bottom")
 
@@ -708,13 +725,16 @@ model_ranking %>%
 
 ```{r fig.width=12}
 if(rj){
-  bt$chain_clean %>%
+  revj_ranking_gg<-bt$chain_clean %>%
   count(`Model string`, name = "N sampled") %>%
   mutate(`% sampled`=`N sampled`/sum(`N sampled`)*100) %>%
   arrange(desc(`N sampled`)) %>%
   mutate(`Model string`=factor(`Model string`, levels = unique(`Model string`))) %>%
   ggplot(aes(x=`Model string`, y=`% sampled`)) +
   geom_bar(stat="identity")
+  
+  #plotlyfy
+  ggplotly(revj_ranking_gg)
 }else {
   print("No Reverse Jump used")
 }
@@ -879,29 +899,29 @@ if(st){
 ## calculate log Bayes Factor (x1=complex model, x2=simple model)
 LogBF<-function(mod1,mod2){2*(mod1-mod2)}
 
-### get complex model
-mod1<-bt$header %>%
-  filter(Options=="Using a covarion model") %>%
-  pivot_longer(-1) %>%
-  filter(value=="True") %>%
-  slice_head(n=1) %>% ## keep only one if multiple
-  pull(name)
+### rank models in decreasing complexity
+complexity_rank<-bt$chain %>% 
+  select(-c(Iteration, Lh, `Tree No`)) %>%
+  group_by(`Run ID`) %>%
+  slice_head(n=1) %>%
+  pivot_longer(-`Run ID`) %>%
+  drop_na() %>%
+  count() %>%
+  arrange(desc(n)) %>%
+  pull(`Run ID`)
 
-### get simple model
-mod2<-bt$header %>%
-  filter(Options=="Using a covarion model") %>%
-  pivot_longer(-1) %>%
-  filter(value=="False") %>%
-  slice_head(n=1) %>% ## keep only one if multiple
-  pull(name)
+### select most complex and next most complex model
+
+mod1=complexity_rank[1]
+mod2=complexity_rank[2]
 
 ### calculate logBF
 log_bf<-LogBF(mod1=stones$`marginal likelihood` %>%
-                                        select(all_of(mod1)) %>% pull(),
-                                      mod2=stones$`marginal likelihood` %>%
-                                        select(all_of(mod2)) %>% 
-                                        pull()) %>%
-                                        round(2)
+                select(all_of(mod1)) %>% pull(),
+              mod2=stones$`marginal likelihood` %>%
+                select(all_of(mod2)) %>%
+                pull()) %>%
+  round(2)
 
 # return Bayes Factor
 cat(paste0("Log Bayes Factor: ",LogBF(mod1=stones$`marginal likelihood` %>%
@@ -910,7 +930,7 @@ cat(paste0("Log Bayes Factor: ",LogBF(mod1=stones$`marginal likelihood` %>%
                                         select(all_of(mod2)) %>% 
                                         pull()) %>%
                                         round(2),
-            "\nThe complex model is a ",ifelse(log_bf>0,"better","worse")," fit.")
+            "\nThe complex model (",mod1, ") is a ",ifelse(log_bf>0,"better","worse")," fit.")
             )
 } else {
   print("No stepping stones sampler set")
@@ -925,10 +945,14 @@ Column {data-width=50%}
 
 ```{r fig.width=12}
 if(st){
-  stones$stones %>%
+  stones_pow_gg<-stones$stones %>%
     ggplot(aes(x=`Stone No`, y=Power, colour=`Run ID`)) +
     geom_line() +
-    theme(legend.position = "bottom")
+    theme(legend.position = "none")
+  
+  #plotlyfy
+  ggplotly(stones_pow_gg)
+  
 } else {
   print("No stepping stones sampler set")
 }
@@ -940,10 +964,15 @@ if(st){
 
 ```{r fig.width=12}
 if(st){
-  stones$stones %>%
+  stones_marml_gg<-stones$stones %>%
     ggplot(aes(x=`Stone No`, y=`Stone MLh`, colour=`Run ID`)) +
     geom_line() +
-    theme(legend.position = "bottom")
+    theme(legend.position = "bottom") +
+    theme(legend.position = "none")
+  
+  #plotlyfy
+  ggplotly(stones_marml_gg)
+  
 } else {
   print("No stepping stones sampler set")
 }
@@ -955,10 +984,15 @@ if(st){
 
 ```{r fig.width=12}
 if(st){
-  stones$stones %>%
+  running_marml_gg<-stones$stones %>%
     ggplot(aes(x=`Stone No`, y=`Running MLh`, colour=`Run ID`)) +
     geom_line() +
-    theme(legend.position = "bottom")
+    theme(legend.position = "bottom") +
+    theme(legend.position = "none")
+  
+  #plotlyfy
+  ggplotly(running_marml_gg)
+  
 } else {
   print("No stepping stones sampler set")
 }
