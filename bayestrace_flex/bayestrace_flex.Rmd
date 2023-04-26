@@ -55,10 +55,10 @@ source("./functions/read_bt_stones.r")
 #dir_path="./examples/Artiodactyl_reduction/"
 
 # covarion example
-#dir_path="./examples/Bird_covarion/"
+dir_path="./examples/Bird_covarion/"
 
 # discrete example
-dir_path="./examples/Primates_discrete/"
+#dir_path="./examples/Primates_discrete/"
 
 # global themes
 theme_set(theme_bw())
