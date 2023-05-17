@@ -1,7 +1,7 @@
 /*##################### header*/
 
 .header {
-	height: 90px;
+	height: 50px;
   	position: fixed;
 	display: block;
   	top: 0;
@@ -11,13 +11,12 @@
 	background: white;
 	font-size: 20px;
 	z-index: 30;
-	border-bottom: 3px solid #344570;
 }
 
 .header img {
 	position: absolute;
 	float: right;
-	height: 85px;
+	height: 45px;
 	z-index: 50;
 	top:0;
 	right:0;
@@ -60,41 +59,67 @@
 	height: 100%;
 	display: block;
 	position: fixed;
-	background-color: #344570;
-	width: 150px; /* Modify the width of the sidebar */
+	background-color: #313a46;
+	color: #7b899a; 
+	width: 200px; /* Modify the width of the sidebar */
+	box-shadow: 10px 0 20px -5px #888;
   }
 
-  .navbar-brand {
-	color:white!important;
-	padding-top: 0px;
-	}
+.navbar-inverse .navbar-nav > li > a:hover, .navbar-inverse .navbar-nav > li > a:focus {
+	color: #8391a2;
+	background-color: #313a46;
+	border-right: 5px solid #ffffff;
+  }
 
+  .navbar-inverse .navbar-nav > .active > a, .navbar-inverse .navbar-nav > .active > a:hover, .navbar-inverse .navbar-nav > .active > a:focus {
+	color: #ffffff;
+	background-color: #313a46;
+	border-right: 5px solid #ffffff;
+}
 
 .navbar li a {
 	display: block;
-	width: 130px;
-	background-color: #344570;
-	color: #9bcc9c;
+	width: 180px;
+	background-color: #313a46;
+	color: #8391a2;
 	text-align: left;
 	text-decoration: none;
 	font-size: 14px;
 }
 
-.navbar li a:focus {
+
+.navbar li a:hover {
 	display: block;
-	background-color: #24304d;
-	color: #9bcc9c;
+	background-color: #313a46;
+	color: #ffffff;
 	text-align: left;
 	text-decoration: none;
-	border-bottom: 5px solid #9bcc9c;
+	border-right: 5px solid #ffffff;
 }
 
+.navbar li a:focus {
+	display: block;
+	background-color: #313a46;
+	color: #ffffff;
+	text-align: left;
+	text-decoration: none;
+	border-right: 5px solid #ffffff;
+}
+
+.navbar li a:active {
+	display: block;
+	background-color: #313a46;
+	color: #ffffff;
+	text-align: left;
+	text-decoration: none;
+	border-right: 5px solid #ffffff;
+}
 
 /*##################### body*/
 
 body {
-	margin-left: 160px; /* Add a left margin to avoid content overlay */
-	padding-top: 100px
+	margin-left: 210px; /* Add a left margin to avoid content overlay */
+	padding-top: 60px
 }
 
 /*##################### chart areas */
@@ -105,7 +130,7 @@ body {
 
 .chart-title {
 	border-bottom: 0px solid #d7d7d7;
-	background: linear-gradient(90deg, #344570, #9bcc9c);
+	background: linear-gradient(90deg, #313a46, #8391a2);
 	color: white;
 	font-size: 14px;
 	font-weight: 300;

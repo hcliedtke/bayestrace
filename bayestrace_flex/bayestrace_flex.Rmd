@@ -7,7 +7,7 @@ output:
 editor_options: 
   chunk_output_type: console
 ---
-            
+
 <div class="header">
   <img src="www/bt_logo_copy.png"/>
     <div class="headertext">
@@ -46,7 +46,7 @@ source("./functions/read_bt_stones.r")
 # Define path to files
 
 # multistates example
-#dir_path="./examples/Artiodactyl_multistates_anc_states/"
+dir_path="./examples/Artiodactyl_multistates_anc_states/"
 
 # fossilised example
 #dir_path="./examples/Artiodactyl_multistates_fossilised/"
@@ -55,7 +55,7 @@ source("./functions/read_bt_stones.r")
 #dir_path="./examples/Artiodactyl_reduction/"
 
 # covarion example
-dir_path="./examples/Bird_covarion/"
+#dir_path="./examples/Bird_covarion/"
 
 # discrete example
 #dir_path="./examples/Primates_discrete/"
@@ -64,11 +64,11 @@ dir_path="./examples/Bird_covarion/"
 theme_set(theme_bw())
 
 # run colors
-run_colors <- list(
-  "1"   = "#00798c",
-  "2"    = "#d1495b",
-  "3" = "#edae49",
-  "4"  = "#66a182",
+run_colors <- c(
+  "1"   = "#727cf5",
+  "2"    = "#0acf97",
+  "3" = "#fa5c7c",
+  "4"  = "#ffbc00",
   "5"   = "#2e4057",
   "6"   = "#8d96a3"
 )
@@ -77,7 +77,7 @@ run_colors <- list(
 
 
 
-Data input {data-orientation=columns}
+Data input {data-orientation=columns, data-icon="fa-home"}
 =====================================  
 
 ```{r message=FALSE, warning=FALSE}
@@ -145,7 +145,8 @@ acceptance_rate$schedule<-acceptance_rate$schedule  %>%
 
 ```{r}
 # define colour space
-traits_colors<-sample(brewer.pal(8,"Dark2"), length(unique(dat$Trait)))
+#traits_colors<-sample(brewer.pal(8,"Dark2"), length(unique(dat$Trait)))
+traits_colors<-run_colors[1:length(unique(dat$Trait))]
 names(traits_colors)<-unique(dat$Trait)
 ```
 
@@ -221,7 +222,7 @@ bt$tree %>%
 ```
 
 
-MCMC traces {data-orientation=columns}
+MCMC traces {data-orientation=columns, data-icon="fa-chart-bar"}
 =====================================  
     
 Column {data-width=60%}
@@ -233,7 +234,7 @@ gg_chain<-bt$chain_clean %>%
   ggplot(aes(x=Iteration, y=Lh, color=`Run ID`)) +
   geom_line(alpha=0.5) +
   geom_smooth(se = FALSE) +
-  scale_color_manual(values=wes_palette(name="Darjeeling1", type="discrete")) +
+  scale_colour_manual(values=unname(run_colors)) +
   theme(legend.position = "bottom")
 
 # plotly-fy
@@ -251,7 +252,7 @@ Column {data-width=40%}
 gg_chain_density<-bt$chain_clean %>%
   ggplot(aes(x=Lh, fill=`Run ID`)) +
   geom_density(alpha=0.5, color=NA) +
-  scale_fill_manual(values=wes_palette(name="Darjeeling1", type="discrete")) +
+  scale_colour_manual(values=unname(run_colors)) +
   theme(legend.position = "none")
 
 # plotly-fy
@@ -265,9 +266,10 @@ ggplotly(gg_chain_density) %>%
 ```{r}
 gg_chain_violins<-bt$chain_clean %>%
   ggplot(aes(x=`Run ID`, y=Lh, fill=`Run ID`, alpha=0.5)) +
-  geom_violin(trim = FALSE, aes(text=`Run ID`)) +
-  geom_boxplot(width = 0.1) +
-  scale_fill_manual(values=wes_palette(name="Darjeeling1", type="discrete")) +
+  geom_violin(trim = FALSE, aes(text=`Run ID`), color=NA) +
+  geom_boxplot(width = 0.1, aes(color=`Run ID`)) +
+  scale_fill_manual(values=unname(run_colors)) +
+  scale_color_manual(values=unname(run_colors)) +
   labs(x="", y="Log Likelihood") +
   theme(legend.position = "none")
 
@@ -279,7 +281,7 @@ ggplotly(gg_chain_violins, tooltip = "text") %>%
 ```
 
 
-MCMC Diagnostics
+MCMC Diagnostics {data-icon="fa-stethoscope"}
 =====================================  
 
 Column {data-width=50%}
@@ -339,7 +341,7 @@ gg_acc<-acceptance_rate$schedule %>%
   mutate(Iterations = 1:n(),
          `Total Ave Acceptance`=`Total Ave Acceptance`*100) %>%
   ggplot(aes(x=Iterations,y=`Total Ave Acceptance`, color=`Run ID`)) +
-  scale_color_manual(values=wes_palette(name="Darjeeling1", type="discrete")) +
+  scale_colour_manual(values=unname(run_colors)) +
   labs(y="Acceptance (%)") +
   geom_line() +
   theme(legend.position = "none")
@@ -372,7 +374,7 @@ gg_autocorr<-bind_rows(bt_acf,.id = "Run ID") %>%
   geom_hline(yintercept = 0, size=0.5) +
   geom_point(size = 2) +
   geom_segment(aes(xend = Lag, yend = 0), size = 0.75) +
-  scale_color_manual(values=wes_palette(name="Darjeeling1", type="discrete")) +
+  scale_colour_manual(values=unname(run_colors)) +
   facet_wrap(~`Run ID`, ncol = 1) +
   theme(legend.position = "none")
 
@@ -382,7 +384,7 @@ ggplotly(gg_autocorr)
 ```
 
 
-Root State & Rate Estimates {data-orientation=rows}
+Root State & Rate Estimates {data-orientation=rows, data-icon="fa-chart-pie"}
 =====================================  
 
 Row
@@ -576,7 +578,7 @@ if(comparison_mode) {
 
 ```
 
-Node Reconstructions {data-orientation=columns}
+Node Reconstructions {data-orientation=columns, data-icon="fa-project-diagram"}
 =====================================  
 
 
@@ -660,7 +662,7 @@ if(!is.null(bt$tags)){
 ```
 
 
-RevJ Model Reduction {data-orientation=columns}
+RevJ Model Reduction {data-orientation=columns, data-icon="fa-chart-area"}
 =====================================  
 
 Row
@@ -854,7 +856,7 @@ par(mfrow=c(1,1))
 
 ```
 
-Model Comparison - LogBF
+Model Comparison - LogBF {data-icon="fa-not-equal"}
 =====================================  
 
 ```{r}

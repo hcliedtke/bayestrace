@@ -1,0 +1,299 @@
+---
+title: "BayesTrace css test"
+output:
+  flexdashboard::flex_dashboard:
+    vertical_layout: fill
+    css: www/styles.css
+editor_options: 
+  chunk_output_type: console
+---
+
+<div class="header">
+  <img src="www/bt_logo_copy.png"/>
+    <div class="headertext">
+   </div>
+</div> 
+
+```{r setup, include=FALSE}
+# Load required packages
+library(flexdashboard)
+library(tidyverse)
+library(plotly)
+library(reactable)
+library(qgraph)
+library(coda)
+library(ape)
+library(RColorBrewer)
+library(wesanderson)
+
+
+# Define EXTRA burnin (proportion of chain to keep. Default is 1 (keep entire chain))
+burnin=1
+
+# Define how many (random) iterations to keep for plotting (reduces load, default = 10,000)
+samples_max=10000
+
+# Define length of run names (abbrevaitions needed for improved visualization)
+abbrev_length=20
+
+# Load custom functions
+#setwd("~/Documents/git_projects/bayestrace/bayestrace_flex/")
+source("./functions/read_bt_log.r")
+source("./functions/read_bt_schedule.r")
+source("./functions/read_bt_stones.r")
+
+
+# Define path to files
+
+# multistates example
+dir_path="./examples/Artiodactyl_multistates_anc_states/"
+
+# fossilised example
+#dir_path="./examples/Artiodactyl_multistates_fossilised/"
+
+# model reduction example
+#dir_path="./examples/Artiodactyl_reduction/"
+
+# covarion example
+#dir_path="./examples/Bird_covarion/"
+
+# discrete example
+#dir_path="./examples/Primates_discrete/"
+
+# global themes
+theme_set(theme_bw())
+
+# run colors
+run_colors <- c(
+  "1"   = "#727cf5",
+  "2"    = "#0acf97",
+  "3" = "#fa5c7c",
+  "4"  = "#ffbc00",
+  "5"   = "#2e4057",
+  "6"   = "#8d96a3"
+)
+
+```
+
+
+
+Data input {data-orientation=columns, data-icon="fa-home"}
+=====================================  
+
+```{r message=FALSE, warning=FALSE}
+# load BayesTraits log file
+bt<-read_bt_log(dir_path)
+
+# load input tree
+tre<-read.nexus(file = paste0(dir_path,"/",
+                              bt$header %>%
+                                filter(Options=="Tree File Name") %>%
+                                pull(2))
+                )
+
+## if multiPhylo, get majority rule consensus tree
+if(class(tre)=="multiPhylo"){
+  tre<-consensus(tre, p = 0.5)
+}
+
+# define run mode
+run_mode<-case_when(
+  any(str_detect(bt$header, "Discrete")) ~ "Discrete",
+  any(str_detect(bt$header, "MultiState")) ~ "MultiState"
+  )
+
+
+# load traits file
+
+if(run_mode=="MultiState") {
+  dat<-read_tsv(file = paste0(dir_path,"/",bt$header %>%
+                                filter(Options=="Data File Name") %>%
+                                pull(2)),
+              col_names = c("Species","Trait")
+              )
+}
+if(run_mode=="Discrete") {
+  dat<-read_tsv(file = paste0(dir_path,"/",bt$header %>%
+                                filter(Options=="Data File Name") %>%
+                                pull(2)),
+              col_names = c("Species","Trait1","Trait2")
+              ) %>%
+    mutate(Trait=paste(Trait1, Trait2, sep=","))
+}
+ 
+# load schedule files
+acceptance_rate<-read_bt_schedule(dir_path)
+
+# load stones files
+if(list.files(dir_path, pattern = "Stones.txt") %>%
+   length() > 0){
+  stones<-read_bt_stones(dir_path)
+}
+```
+
+```{r}
+# remove burnin, downsample and abbreviate runs
+bt$chain_clean<-bt$chain %>%
+  slice_tail(prop = burnin) %>%
+  filter(row_number() %in% floor(seq(1, n(), length.out=samples_max)))
+
+acceptance_rate$schedule<-acceptance_rate$schedule  %>%
+  slice_tail(prop = burnin) %>%
+  filter(row_number() %in% floor(seq(1, n(), length.out=samples_max))) 
+
+```
+
+```{r}
+# define colour space
+#traits_colors<-sample(brewer.pal(8,"Dark2"), length(unique(dat$Trait)))
+traits_colors<-run_colors[1:length(unique(dat$Trait))]
+names(traits_colors)<-unique(dat$Trait)
+```
+
+```{r}
+# define "mode". I.e. are multiple runs the same, or are they run with different settings 
+comparison_mode<-bt$header %>%
+  filter(if_any(2:ncol(.), ~ .x != bt$header[,2])) %>%
+  filter(!Options %in% c("Log File Name","Seed", "Schedule File")) %>%
+  nrow()>0
+```
+
+Column {data-width=60%}
+-----------------------------------------------------------------------
+
+### BayesTraits Header
+
+```{r}
+# print table, highlighting differences
+bt$header %>%
+  mutate(not_same=if_any(2:ncol(.), ~ .x != bt$header[,2])) %>% # identify columns that are not the same
+  reactable(
+    defaultPageSize = 50,
+    defaultColDef = colDef(
+      style = function(value, index) {
+        if (.$not_same[index]) {
+          color="red"
+        } else {
+          color <- "black"
+        } 
+        list(color = color)
+      }
+    ),
+    columns = list(
+      not_same = colDef(show=FALSE)
+    )
+  )
+```
+
+
+Column {data-width=40%}
+-----------------------------------------------------------------------
+
+### Restrictions
+
+```{r}
+bt$restrictions %>%
+  reactable(defaultPageSize = 20)
+```
+
+### Reconstructions / Fossilisations
+
+```{r}
+if(is.null(bt$tags) | is.null(bt$recon)) {
+  print("No tags or reconstructions set")
+}else{
+bt$recon %>%
+  left_join(bt$tags) %>%
+  reactable(defaultPageSize = 20)
+  }
+```
+
+### Priors
+
+```{r}
+bt$priors %>%
+  reactable(defaultPageSize = 20)
+```
+
+### Tree
+
+```{r}
+bt$tree %>%
+  reactable(defaultPageSize = 20)
+```
+
+
+MCMC traces {data-orientation=columns, data-icon="fa-chart-bar"}
+=====================================  
+Column {data-width=60%}
+-----------------------------------------------------------------------
+
+### ML Chain
+```{r fig.cap="This plot shows 10,000 random iterations of the Maximum Likelihood chains"}
+gg_chain<-bt$chain_clean %>%
+  ggplot(aes(x=Iteration, y=Lh, color=`Run ID`)) +
+  geom_line(alpha=0.75) +
+  geom_smooth(se = FALSE) +
+  scale_colour_manual(values=unname(run_colors)) +
+  theme(legend.position = "bottom")
+
+# plotly-fy
+ggplotly(gg_chain) %>%
+  layout(legend = list(orientation = "h", x = 0, y =-0.2))
+
+```
+
+Column {data-width=40%}
+-----------------------------------------------------------------------
+
+### ML Chain Density
+
+```{r}
+gg_chain_density<-bt$chain_clean %>%
+  ggplot(aes(x=Lh, fill=`Run ID`)) +
+  geom_density(alpha=0.5, color=NA) +
+  scale_fill_manual(values=unname(run_colors)) +
+  theme(legend.position = "none")
+
+# plotly-fy
+ggplotly(gg_chain_density) %>%
+  layout(hovermode = "x unified")
+
+```
+
+### ML Chain violins
+
+```{r}
+gg_chain_violins<-bt$chain_clean %>%
+  ggplot(aes(x=`Run ID`, y=Lh, fill=`Run ID`, alpha=0.5)) +
+  geom_violin(trim = FALSE, aes(text=`Run ID`)) +
+  geom_boxplot(width = 0.1) +
+  scale_fill_manual(values=unname(run_colors)) +
+  labs(x="", y="Log Likelihood") +
+  theme(legend.position = "none")
+
+## plotly-fy
+ggplotly(gg_chain_violins, tooltip = "text") %>%
+  layout(boxgap = 0.9)
+  
+
+```
+
+
+
+MCMC Diagnostics {data-orientation=columns, data-icon="fa-stethoscope"}
+=====================================  
+
+Root State & Rate Estimates {data-orientation=columns, data-icon="fa-chart-pie"}
+=====================================  
+
+
+Node Reconstructions {data-orientation=columns, data-icon="fa-project-diagram"}
+=====================================  
+
+
+RevJ Model Reduction {data-orientation=columns, data-icon="fa-chart-area"}
+=====================================  
+
+Model Comparison - LogBF {data-orientation=columns, data-icon="fa-not-equal"}
+=====================================  
