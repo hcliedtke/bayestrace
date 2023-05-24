@@ -1,60 +1,39 @@
-dashboardPage(skin = "black",
-  dashboardHeader(title = "BayesTrace"),
-  dashboardSidebar(
-    sidebarMenu(
-      menuItem("Input",tabName = "input", icon = icon("pen"),
-               fileInput(inputId = "log_file1",label = "Select one or multiple BT log files", multiple = TRUE)),
-      menuItem("Run Info",tabName = "runinfo", icon = icon("document")),
-      menuItem("MCMC Trace", tabName = "MCMCtrace", icon = icon("tachometer-alt")),
-      menuItem("Rates", tabName = "rates", icon = icon("chart-pie")),
-      menuItem("Log", tabName = "log", icon = icon("table"))
-    )
-  ),
-  dashboardBody(
+ui <- fluidPage(
   
-    
-    tabItems(
-      
-      # input tab content
-      tabItem(tabName = "runinfo",
-              h2("BayesTraits Log file output"),
-              fluidRow(
-                box(width = 8,
-                    reactableOutput("btHeader"))
-              )
-              
-      ),
-      
-      # Trace tab content
-      tabItem(tabName = "MCMCtrace",
-              h2("MCMC traces"),
-              fluidRow(
-                box(width = 8,
-                    plotlyOutput("LhTrace")),
-                box(width = 4,
-                    plotlyOutput("LhDensity"))
-              )
-              
-      ),
-      # rates tab content
-      tabItem(tabName = "rates",
-              h2("Rates and States"),
-              fluidRow(
-                box(width = 6,
-                    plotlyOutput("RootState")),
-                box(width = 6,
-                    plotlyOutput("StateDensity"))
-              )
-              
-              ),
-      # Log tab content
-      tabItem(tabName = "log",
-              h2("BT log table"),
-              fluidRow(
-                box(width = 8,
-                    tableOutput("logtable")))
-    ))
-    
-    
-  )
+  navbarPage("BayesTrace",
+             
+             tabPanel(title = "Live Trace",
+                      sidebarLayout(
+                        sidebarPanel(
+                          
+                          #fileInput("file1", "Choose log file"),#add red asterisks to make this mandatory
+                          shinyFilesButton("GetFile", "Choose log file" ,
+                                           title = "Please select a file:", multiple = FALSE,
+                                           buttonType = "default", class = NULL), 
+                          actionButton("stop", "Stop", class = "btn-danger")
+                          
+                        ), #-> closesidebarPanel
+                        
+                        mainPanel(
+                          tabsetPanel(
+                            tabPanel("Trace",
+                                     plotlyOutput("plotOne")),
+                            tabPanel("Data",
+                                     tableOutput("tableOne")))
+                          ) #-> close mainPanel
+                        )   #-> close sidebarLayout  
+             ), #-> close first tabPanel
+             
+            #================================================================ 
+             # Tab 2
+             
+             tabPanel(title = "Generate Report",
+                      mainPanel(
+                        shinyDirButton('folder', 'Folder select', 'Please select a folder', FALSE)
+                      ),
+                      textOutput(outputId = "dir")
+                      ) #-> close mainPanel)
+  )  #-> close first NavBarPage
+  
+  
 )
