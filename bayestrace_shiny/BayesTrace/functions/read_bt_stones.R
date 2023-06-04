@@ -74,6 +74,6 @@ read_bt_stones<-function(x,abbrev_length=20){
   return(list(header=header_df,
               stones=stones_df,
               `marginal likelihood`=marLik_df))
-
+  
 }
 

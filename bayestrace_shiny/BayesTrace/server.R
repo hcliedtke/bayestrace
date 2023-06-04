@@ -80,7 +80,37 @@ server <- function(input,output,session){
     list.files(path1())
   })
   
-
+  #=======================
+  # render Rmd report
+  output$report <- downloadHandler(
+    filename = "report.html",
+    content = function(f) {
+      
+      # call bayestrace report file and pass the input file directory to it
+      
+      rmarkdown::render("bayestrace_report.Rmd", output_file = f,
+                        params = list(dir_path=path1()),
+                        envir = new.env(parent = globalenv())
+      )
+    }
+  )
+  
+  #======================= 
+  # render plotly
+  
+  output$plotTwo <- renderPlotly({
+    
+    req(path1())
+    if(is.null(path1())){return ()}
+    
+    log_file_path<-paste0(path1(),"/","Artiodactyl_multistate_run1.Log.txt")
+    dat<-reactiveFileReader(1000, session, filePath = log_file_path, readFun = read_log)
+    plot_ly(data=dat(),
+            x=~Iteration, y=~Lh,
+            type = 'scatter',
+            mode = 'lines')
+  })
+  
   
 }
 

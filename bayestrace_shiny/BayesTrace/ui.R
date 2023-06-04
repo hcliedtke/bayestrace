@@ -31,7 +31,12 @@ ui <- fluidPage(
                       mainPanel(
                         shinyDirButton('folder', 'Folder select', 'Please select a folder', FALSE)
                       ),
-                      textOutput(outputId = "dir")
+                      textOutput(outputId = "dir"),
+                      mainPanel(
+                        downloadButton("report", "Generate report")
+                      ),
+                      tabPanel("Trace",
+                               plotlyOutput("plotTwo"))
                       ) #-> close mainPanel)
   )  #-> close first NavBarPage
   
