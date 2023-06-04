@@ -9,7 +9,7 @@ editor_options:
 ---
 
 <div class="header">
-  <img src="www/bt_logo_copy.png"/>
+  <img src="www/bt_logo3.png"/>
     <div class="headertext">
    </div>
 </div> 
