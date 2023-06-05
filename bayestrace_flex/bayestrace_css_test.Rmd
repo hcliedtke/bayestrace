@@ -9,7 +9,7 @@ editor_options:
 ---
 
 <div class="header">
-  <img src="www/bt_logo_copy.png"/>
+  <img src="www/bt_logo3.png"/>
     <div class="headertext">
    </div>
 </div> 
@@ -61,7 +61,10 @@ dir_path="./examples/Artiodactyl_multistates_anc_states/"
 #dir_path="./examples/Primates_discrete/"
 
 # global themes
-theme_set(theme_bw())
+theme_set(theme_classic()+
+            theme(axis.line=element_blank(),
+                  panel.grid.major.y = element_line(color = "grey90",size = 0.5),
+                  axis.title.x = element_text(angle=45, hjust = 0)))
 
 # run colors
 run_colors <- c(

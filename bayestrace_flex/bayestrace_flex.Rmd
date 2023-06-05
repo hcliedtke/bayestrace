@@ -61,7 +61,16 @@ dir_path="./examples/Artiodactyl_multistates_anc_states/"
 #dir_path="./examples/Primates_discrete/"
 
 # global themes
-theme_set(theme_bw())
+theme_set(theme_classic()+
+            theme(
+              # grid and axes
+              axis.line=element_blank(),
+              panel.grid.major.y = element_line(color = "grey95",size = 0.5),
+              # facet strips
+              strip.background = element_rect(color=NA, fill=NA),
+              strip.text = element_text(hjust = 0, size=12))
+)
+
 
 # run colors
 run_colors <- c(
@@ -164,7 +173,7 @@ Column {data-width=60%}
 ### BayesTraits Header
 
 ```{r}
-# print table, highlighting differences
+# cat table, highlighting differences
 bt$header %>%
   mutate(not_same=if_any(2:ncol(.), ~ .x != bt$header[,2])) %>% # identify columns that are not the same
   reactable(
@@ -199,7 +208,7 @@ bt$restrictions %>%
 
 ```{r}
 if(is.null(bt$tags) | is.null(bt$recon)) {
-  print("No tags or reconstructions set")
+  cat("No tags or reconstructions set")
 }else{
 bt$recon %>%
   left_join(bt$tags) %>%
@@ -261,7 +270,7 @@ ggplotly(gg_chain_density) %>%
 
 ```
 
-### ML Chain violins
+### ML Chain Violins
 
 ```{r}
 gg_chain_violins<-bt$chain_clean %>%
@@ -375,6 +384,7 @@ gg_autocorr<-bind_rows(bt_acf,.id = "Run ID") %>%
   geom_point(size = 2) +
   geom_segment(aes(xend = Lag, yend = 0), size = 0.75) +
   scale_colour_manual(values=unname(run_colors)) +
+  labs(y="Autocorrelation Function") +
   facet_wrap(~`Run ID`, ncol = 1) +
   theme(legend.position = "none")
 
@@ -545,13 +555,12 @@ if(comparison_mode) {
   select(starts_with("q")) %>%
   pivot_longer(-`Run ID`, names_to = "transition", values_to = "rate") %>%
   ggplot(aes(x=rate)) +
-  geom_density(alpha=0.75, fill="grey50",color=NA) +
+  geom_density(alpha=0.75, fill="grey90",color=NA) +
   geom_vline(data=. %>%
                group_by(`Run ID`, transition) %>%
     summarise(rate=mean(rate)),
     aes(xintercept=rate, linetype="dashed")) +
   facet_grid(`Run ID`~transition, scales = "free") +
-  theme_bw() +
   theme(legend.position = "none")
   
   #plotlyfy
@@ -562,13 +571,12 @@ if(comparison_mode) {
   select(starts_with("q")) %>%
   pivot_longer(everything(), names_to = "transition", values_to = "rate") %>%
   ggplot(aes(x=rate)) +
-  geom_density(alpha=0.75, fill="grey50",color=NA) +
+  geom_density(alpha=0.75, fill="grey90",color=NA) +
   geom_vline(data=. %>%
                group_by(transition) %>%
     summarise(rate=mean(rate)),
     aes(xintercept=rate, linetype="dashed")) +
   facet_wrap(~transition, scales = "free") +
-  theme_bw() +
   theme(legend.position = "none")
   
   #plotlyfy
@@ -584,7 +592,7 @@ Node Reconstructions {data-orientation=columns, data-icon="fa-project-diagram"}
 
 ```{r}
 if(is.null(bt$tags)) {
-  print("No nodes were set for ancestral state reconstrucitions")
+  cat("No nodes were set for ancestral state reconstrucitions")
 }else{
   
 
@@ -632,7 +640,7 @@ if(exists("anc_df")){
     mutate_if(is.numeric, round, 2) %>%
     reactable()
 } else {
-  print("No nodes were set for ancestral state reconstrucitions")
+  cat("No nodes were set for ancestral state reconstrucitions")
 }
 
 ```
@@ -698,7 +706,7 @@ transition_rates<-bt$chain_clean %>%
 transition_rates %>%
   reactable()
 } else {
-  print("No Reverse Jump used")
+  cat("No Reverse Jump used")
 }
 
 ```
@@ -718,7 +726,7 @@ if(rj){
 model_ranking %>% 
   reactable()
 }else {
-  print("No Reverse Jump used")
+  cat("No Reverse Jump used")
 }
 
 ```
@@ -738,7 +746,7 @@ if(rj){
   #plotlyfy
   ggplotly(revj_ranking_gg)
 }else {
-  print("No Reverse Jump used")
+  cat("No Reverse Jump used")
 }
 ```
 
@@ -787,7 +795,7 @@ qgraph(zero_matrix,
          normalize=TRUE,
          directed=TRUE)
 } else {
-  print("No Reverse Jump used")
+  cat("No Reverse Jump used")
 }
 
 ```
@@ -850,7 +858,7 @@ for(i in 1:3) {
 }
 
 } else {
-  print("No Reverse Jump used")
+  cat("No Reverse Jump used")
 }
 par(mfrow=c(1,1))
 
@@ -875,7 +883,7 @@ if(st){
   stones$header %>%
     reactable()
 } else {
-  print("No stepping stones sampler set")
+  cat("No stepping stones sampler set")
 }
 ```
 
@@ -888,7 +896,7 @@ if(st){
     mutate_if(is.numeric, round, 2) %>%
     reactable(defaultPageSize = 2)
 } else {
-  print("No stepping stones sampler set")
+  cat("No stepping stones sampler set")
 }
 
 ```
@@ -935,7 +943,7 @@ cat(paste0("Log Bayes Factor: ",LogBF(mod1=stones$`marginal likelihood` %>%
             "\nThe complex model (",mod1, ") is a ",ifelse(log_bf>0,"better","worse")," fit.")
             )
 } else {
-  print("No stepping stones sampler set")
+  cat("No stepping stones sampler set")
 }
 ```
 
@@ -956,7 +964,7 @@ if(st){
   ggplotly(stones_pow_gg)
   
 } else {
-  print("No stepping stones sampler set")
+  cat("No stepping stones sampler set")
 }
 
 ```
@@ -976,7 +984,7 @@ if(st){
   ggplotly(stones_marml_gg)
   
 } else {
-  print("No stepping stones sampler set")
+  cat("No stepping stones sampler set")
 }
 
 ```
@@ -996,7 +1004,7 @@ if(st){
   ggplotly(running_marml_gg)
   
 } else {
-  print("No stepping stones sampler set")
+  cat("No stepping stones sampler set")
 }
 
 ```
