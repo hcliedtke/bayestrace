@@ -24,7 +24,6 @@ library(qgraph)
 library(coda)
 library(ape)
 library(RColorBrewer)
-library(wesanderson)
 
 
 # Define EXTRA burnin (proportion of chain to keep. Default is 1 (keep entire chain))
@@ -238,7 +237,7 @@ Column {data-width=60%}
 -----------------------------------------------------------------------
 
 ### ML Chain
-```{r fig.cap="This plot shows 10,000 random iterations of the Maximum Likelihood chains"}
+```{r}
 gg_chain<-bt$chain_clean %>%
   ggplot(aes(x=Iteration, y=Lh, color=`Run ID`)) +
   geom_line(alpha=0.5) +
