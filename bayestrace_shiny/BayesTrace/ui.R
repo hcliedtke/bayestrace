@@ -14,14 +14,12 @@ ui <- fluidPage(style='padding:100px;',
                          actionButton("help_btn", "Help!", class = "btn-warning")
                 ),
                 fluidRow(style='padding:30px;margin:10px;background-color:#f7f6f2;border-radius:10px',
-                         # A static infoBox (for dunamic, use infoBoxOutput)
-                         shinydashboard::valueBox(width=4,icon = icon("clipboard"), color="teal",
-                                                  "Log files found:",value=2),
+                         div(p("Run characteristics")),
+                         shinydashboard::valueBoxOutput(outputId = "value_n_logs",width=4),
                          shinydashboard::valueBox(icon = icon("not-equal"), width=4, color="maroon",
                                                   "Run Type", value="mixed"),
                          shinydashboard::valueBox(icon = icon("link"), width=4, color="orange",
                                                   "Stones", value="No")
-                         
                 ),
                 fluidRow(style='padding:30px;margin:10px;background-color:#f7f6f2;border-radius:10px',
                          div(p("Live trace of LogLikelihood will load here")),

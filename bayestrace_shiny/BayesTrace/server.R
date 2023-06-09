@@ -34,7 +34,7 @@ server <- function(input,output,session){
   })
 
   #=======================
-  # read user-specified file and update one file changes
+  # read user-specified mcmc chain file and update on file changes
   volumes = getVolumes()
   v = reactiveValues(path = NULL)
   
@@ -76,6 +76,23 @@ server <- function(input,output,session){
   #})
   
   #=======================
+  # gather data to generate value boxes
+  
+  n_logs <- reactive({
+    if (is.null(input$folder)) return(NULL)
+    list.files(path=path1(), pattern="Log.txt") %>% length()
+  })
+  
+  output$value_n_logs <- shinydashboard::renderValueBox({
+    shinydashboard::valueBox(value = n_logs(),
+                             subtitle = "Log files found:",
+                             icon = icon("clipboard"),
+                             color="teal")
+  })
+  
+  
+  
+  #=======================
   # render Rmd report
   
   output$report <- downloadHandler(
@@ -93,28 +110,33 @@ server <- function(input,output,session){
 
   #======================= 
   # render plotly
+  v2 = reactiveValues(path = NULL)
   
-  output$plotTwo <- renderPlotly({
+  observe({
     req(path1())
     if(is.null(path1())){return ()}
-    
-    #log_file_path<-paste0(path1(),"/","Artiodactyl_multistate_run1.Log.txt")
-    
-    dat<-reactiveFileReader(1000, session, filePath = path1(), readFun = read_log)
-    
-    gg_chain<-dat() %>%
-      as_tibble() %>%
-      ggplot(aes(x=Iteration, y=Lh, color=`Run ID`)) +
-      geom_line(alpha=0.75) +
-      geom_smooth(se = FALSE) +
-      scale_colour_manual(values=unname(run_colors)) +
-      theme(legend.position = "bottom")
-    
-    # plotly-fy
-    ggplotly(gg_chain) %>%
-      layout(legend = list(orientation = "h", x = 0, y =-0.2))
-     
+    v2$dat<-reactiveFileReader(1000, session, filePath = path1(), readFun = read_log)
   })
+  
+  
+   output$plotTwo <- renderPlotly({
+     req(v2$dat())
+     if(is.null(v2$dat())){return ()}
+     
+     
+     gg_chain<-v2$dat() %>%
+       as_tibble() %>%
+       ggplot(aes(x=Iteration, y=Lh, color=`Run ID`)) +
+       geom_line(alpha=0.75) +
+       geom_smooth(se = FALSE) +
+       scale_colour_manual(values=unname(run_colors)) +
+       theme(legend.position = "bottom")
+     
+     # plotly-fy
+     ggplotly(gg_chain) %>%
+       layout(legend = list(orientation = "h", x = 0, y =-0.2))
+      
+   })
   
   
 }

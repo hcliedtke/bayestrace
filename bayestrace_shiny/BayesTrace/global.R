@@ -50,7 +50,15 @@ read_log<-function(filePath, abbrev_length=20){
 # Set themes  
   
 # global themes
-theme_set(theme_bw())
+theme_set(theme_classic()+
+            theme(
+              # grid and axes
+              axis.line=element_blank(),
+              panel.grid.major.y = element_line(color = "grey95",size = 0.5),
+              # facet strips
+              strip.background = element_rect(color=NA, fill=NA),
+              strip.text = element_text(hjust = 0, size=12))
+)
   
   # run colors
   run_colors <- c(
