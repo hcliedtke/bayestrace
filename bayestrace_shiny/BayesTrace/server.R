@@ -33,56 +33,101 @@ server <- function(input,output,session){
     )
   })
 
-  #=======================
-  # read user-specified mcmc chain file and update on file changes
-  volumes = getVolumes()
-  v = reactiveValues(path = NULL)
-  
-  observe({
-    
-      shinyFileChoose(input, "GetFile", roots = volumes, session = session)
-      
-      req(input$GetFile)
-      file_selected <- parseFilePaths(volumes, input$GetFile)
-      v$path <- as.character(file_selected$datapath)
-      req(v$path)
-      v$data <- reactiveFileReader(1000, session, filePath = v$path, readFun = read_log)
-  })
-  
-  
-  
-  #======================= 
-  # render plotly
-  
-  output$plotOne <- renderPlotly({
-    req(v$data)
-    if(is.null(v$data())){return ()}
-    plot_ly(data=v$data(),
-            x=~Iteration, y=~Lh,
-            type = 'scatter',
-            mode = 'lines')
-  })
-  
+##  #=======================
+##  # read user-specified mcmc chain file and update on file changes
+##  volumes = getVolumes()
+##  v = reactiveValues(path = NULL)
+##  
+##  observe({
+##    
+##      shinyFileChoose(input, "GetFile", roots = volumes, session = session)
+##      
+##      req(input$GetFile)
+##      file_selected <- parseFilePaths(volumes, input$GetFile)
+##      v$path <- as.character(file_selected$datapath)
+##      req(v$path)
+##      v$data <- reactiveFileReader(1000, session, filePath = v$path, readFun = read_log)
+##  })
+##  
+##  
+##  
+##  #======================= 
+##  # render plotly
+##  
+##  output$plotOne <- renderPlotly({
+##    req(v$data)
+##    if(is.null(v$data())){return ()}
+##    plot_ly(data=v$data(),
+##            x=~Iteration, y=~Lh,
+##            type = 'scatter',
+##            mode = 'lines')
+##  })
+##  
  
   #=======================
   # read user-specified BayesTraits directory
-  volumes = getVolumes()
-  shinyDirChoose(input, 'folder', roots=c(wd="../"), session=session)
-  path1 <- reactive({
-    return(print(parseDirPath(c(wd="../"), input$folder)))
+
+  home <- normalizePath("../")
+  home <- c('home' = home) 
+  
+  shinyDirChoose(input, 'folder', roots = home)
+  
+  path <- reactive({
+    parseDirPath(roots = home, input$folder)
   })
-  #output$dir <- renderText({
-  #  list.files(path1())
-  #})
+  
+  # check path is correct
+  #output$fileReaderText <- renderText({
+  # file.path(path(),
+  #  list.files(path=path(), pattern="Log.txt"))
+  #  })
+  
+  reac <- reactiveValues()
+  
+  observeEvent(path(), {
+   log_filename <- list.files(path=path(), pattern="Log.txt")
+    
+    req(length(file.exists(file.path(path(), log_filename))) > 0)
+    if(file.exists(file.path(path(), log_filename))) {
+      
+      #for(i in 1:length())
+      fileReaderData <- reactiveFileReader(1000,
+                                           session,
+                                           filePath = file.path(path(), log_filename),
+                                           readFun = read_log)
+      
+      #======================= 
+      # render plotly
+      
+      output$chainPlot <- renderPlotly({
+        req(fileReaderData())
+        if(is.null(fileReaderData())){return()}
+        
+        
+        gg_chain<-fileReaderData() %>%
+          as_tibble() %>%
+          ggplot(aes(x=Iteration, y=Lh, color=`Run ID`)) +
+          geom_line(alpha=0.75) +
+          scale_colour_manual(values=unname(run_colors)) +
+          theme(legend.position = "None")
+        
+        # plotly-fy
+        ggplotly(gg_chain) %>%
+          layout(legend = list(orientation = "h", x = 0, y =-0.2))
+        })
+      }
+      
+  })
+  
   
   #=======================
   # gather data to generate value boxes
   
   n_logs <- reactive({
     if (is.null(input$folder)) return(NULL)
-    list.files(path=path1(), pattern="Log.txt") %>% length()
+    list.files(path=path(), pattern="Log.txt") %>% length()
   })
-  
+
   output$value_n_logs <- shinydashboard::renderValueBox({
     shinydashboard::valueBox(value = n_logs(),
                              subtitle = "Log files found:",
@@ -97,46 +142,22 @@ server <- function(input,output,session){
   
   output$report <- downloadHandler(
     filename = "report.html",
+    
     content = function(f) {
+      
+      # have temporary loading modal
+      showModal(modalDialog("Generating Report..", footer=NULL))
+      on.exit(removeModal())
       
       # call bayestrace report file and pass the input file directory to it
       
       rmarkdown::render("bayestrace_report.Rmd", output_file = f,
-                        params = list(dir_path=path1()),
+                        params = list(dir_path=path()),
                         envir = new.env(parent = globalenv())
       )
     }
   )
 
-  #======================= 
-  # render plotly
-  v2 = reactiveValues(path = NULL)
-  
-  observe({
-    req(path1())
-    if(is.null(path1())){return ()}
-    v2$dat<-reactiveFileReader(1000, session, filePath = path1(), readFun = read_log)
-  })
-  
-  
-   output$plotTwo <- renderPlotly({
-     req(v2$dat())
-     if(is.null(v2$dat())){return ()}
-     
-     
-     gg_chain<-v2$dat() %>%
-       as_tibble() %>%
-       ggplot(aes(x=Iteration, y=Lh, color=`Run ID`)) +
-       geom_line(alpha=0.75) +
-       geom_smooth(se = FALSE) +
-       scale_colour_manual(values=unname(run_colors)) +
-       theme(legend.position = "bottom")
-     
-     # plotly-fy
-     ggplotly(gg_chain) %>%
-       layout(legend = list(orientation = "h", x = 0, y =-0.2))
-      
-   })
   
   
 }

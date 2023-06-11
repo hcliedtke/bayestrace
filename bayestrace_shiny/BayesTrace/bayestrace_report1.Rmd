@@ -1,0 +1,1010 @@
+---
+title: "BayesTrace v1.0"
+output:
+  flexdashboard::flex_dashboard:
+    vertical_layout: fill
+    css: www/styles.css
+editor_options: 
+  chunk_output_type: console
+---
+
+<div class="header">
+  <img src="www/bt_logo3.png"/>
+    <div class="headertext">
+   </div>
+</div> 
+
+```{r setup, include=FALSE}
+# Load required packages
+library(flexdashboard)
+library(tidyverse)
+library(plotly)
+library(reactable)
+library(qgraph)
+library(coda)
+library(ape)
+library(RColorBrewer)
+
+
+# Define EXTRA burnin (proportion of chain to keep. Default is 1 (keep entire chain))
+burnin=1
+
+# Define how many (random) iterations to keep for plotting (reduces load, default = 10,000)
+samples_max=10000
+
+# Define length of run names (abbrevaitions needed for improved visualization)
+abbrev_length=20
+
+# Load custom functions
+#setwd("~/Documents/git_projects/bayestrace/bayestrace_flex/")
+source("./functions/read_bt_log.r")
+source("./functions/read_bt_schedule.r")
+source("./functions/read_bt_stones.r")
+
+
+# Define path to files
+
+# multistates example
+dir_path="./examples/Artiodactyl_multistates_anc_states/"
+
+# fossilised example
+#dir_path="./examples/Artiodactyl_multistates_fossilised/"
+
+# model reduction example
+#dir_path="./examples/Artiodactyl_reduction/"
+
+# covarion example
+#dir_path="./examples/Bird_covarion/"
+
+# discrete example
+#dir_path="./examples/Primates_discrete/"
+
+# global themes
+theme_set(theme_classic()+
+            theme(
+              # grid and axes
+              axis.line=element_blank(),
+              panel.grid.major.y = element_line(color = "grey95",size = 0.5),
+              # facet strips
+              strip.background = element_rect(color=NA, fill=NA),
+              strip.text = element_text(hjust = 0, size=12))
+)
+
+
+# run colors
+run_colors <- c(
+  "1"   = "#727cf5",
+  "2"    = "#0acf97",
+  "3" = "#fa5c7c",
+  "4"  = "#ffbc00",
+  "5"   = "#2e4057",
+  "6"   = "#8d96a3"
+)
+
+```
+
+
+
+Data input {data-orientation=columns, data-icon="fa-home"}
+=====================================  
+
+```{r message=FALSE, warning=FALSE}
+# load BayesTraits log file
+bt<-read_bt_log(dir_path)
+
+# load input tree
+tre<-read.nexus(file = paste0(dir_path,"/",
+                              bt$header %>%
+                                filter(Options=="Tree File Name") %>%
+                                pull(2))
+                )
+
+## if multiPhylo, get majority rule consensus tree
+if(class(tre)=="multiPhylo"){
+  tre<-consensus(tre, p = 0.5)
+}
+
+# define run mode
+run_mode<-case_when(
+  any(str_detect(bt$header, "Discrete")) ~ "Discrete",
+  any(str_detect(bt$header, "MultiState")) ~ "MultiState"
+  )
+
+
+# load traits file
+
+if(run_mode=="MultiState") {
+  dat<-read_tsv(file = paste0(dir_path,"/",bt$header %>%
+                                filter(Options=="Data File Name") %>%
+                                pull(2)),
+              col_names = c("Species","Trait")
+              )
+}
+if(run_mode=="Discrete") {
+  dat<-read_tsv(file = paste0(dir_path,"/",bt$header %>%
+                                filter(Options=="Data File Name") %>%
+                                pull(2)),
+              col_names = c("Species","Trait1","Trait2")
+              ) %>%
+    mutate(Trait=paste(Trait1, Trait2, sep=","))
+}
+ 
+# load schedule files
+acceptance_rate<-read_bt_schedule(dir_path)
+
+# load stones files
+if(list.files(dir_path, pattern = "Stones.txt") %>%
+   length() > 0){
+  stones<-read_bt_stones(dir_path)
+}
+```
+
+```{r}
+# remove burnin, downsample and abbreviate runs
+bt$chain_clean<-bt$chain %>%
+  slice_tail(prop = burnin) %>%
+  filter(row_number() %in% floor(seq(1, n(), length.out=samples_max)))
+
+acceptance_rate$schedule<-acceptance_rate$schedule  %>%
+  slice_tail(prop = burnin) %>%
+  filter(row_number() %in% floor(seq(1, n(), length.out=samples_max))) 
+
+```
+
+```{r}
+# define colour space
+#traits_colors<-sample(brewer.pal(8,"Dark2"), length(unique(dat$Trait)))
+traits_colors<-run_colors[1:length(unique(dat$Trait))]
+names(traits_colors)<-unique(dat$Trait)
+```
+
+```{r}
+# define "mode". I.e. are multiple runs the same, or are they run with different settings 
+comparison_mode<-bt$header %>%
+  filter(if_any(2:ncol(.), ~ .x != bt$header[,2])) %>%
+  filter(!Options %in% c("Log File Name","Seed", "Schedule File")) %>%
+  nrow()>0
+```
+
+Column {data-width=60%}
+-----------------------------------------------------------------------
+
+### BayesTraits Header
+
+```{r}
+# cat table, highlighting differences
+bt$header %>%
+  mutate(not_same=if_any(2:ncol(.), ~ .x != bt$header[,2])) %>% # identify columns that are not the same
+  reactable(
+    defaultPageSize = 50,
+    defaultColDef = colDef(
+      style = function(value, index) {
+        if (.$not_same[index]) {
+          color="red"
+        } else {
+          color <- "black"
+        } 
+        list(color = color)
+      }
+    ),
+    columns = list(
+      not_same = colDef(show=FALSE)
+    )
+  )
+```
+
+Column {data-width=40%}
+-----------------------------------------------------------------------
+
+### Restrictions
+
+```{r}
+bt$restrictions %>%
+  reactable(defaultPageSize = 20)
+```
+
+### Reconstructions / Fossilisations
+
+```{r}
+if(is.null(bt$tags) | is.null(bt$recon)) {
+  cat("No tags or reconstructions set")
+}else{
+bt$recon %>%
+  left_join(bt$tags) %>%
+  reactable(defaultPageSize = 20)
+  }
+```
+
+### Priors
+
+```{r}
+bt$priors %>%
+  reactable(defaultPageSize = 20)
+```
+
+### Tree
+
+```{r}
+bt$tree %>%
+  reactable(defaultPageSize = 20)
+```
+
+
+MCMC traces {data-orientation=columns, data-icon="fa-chart-bar"}
+=====================================  
+    
+Column {data-width=60%}
+-----------------------------------------------------------------------
+
+### ML Chain
+```{r}
+gg_chain<-bt$chain_clean %>%
+  ggplot(aes(x=Iteration, y=Lh, color=`Run ID`)) +
+  geom_line(alpha=0.5) +
+  geom_smooth(se = FALSE) +
+  scale_colour_manual(values=unname(run_colors)) +
+  theme(legend.position = "bottom")
+
+# plotly-fy
+ggplotly(gg_chain) %>%
+  layout(legend = list(orientation = "h", x = 0, y =-0.2))
+
+```
+
+Column {data-width=40%}
+-----------------------------------------------------------------------
+
+### ML Chain Density
+
+```{r}
+gg_chain_density<-bt$chain_clean %>%
+  ggplot(aes(x=Lh, fill=`Run ID`)) +
+  geom_density(alpha=0.5, color=NA) +
+  scale_colour_manual(values=unname(run_colors)) +
+  theme(legend.position = "none")
+
+# plotly-fy
+ggplotly(gg_chain_density) %>%
+  layout(hovermode = "x unified")
+
+```
+
+### ML Chain Violins
+
+```{r}
+gg_chain_violins<-bt$chain_clean %>%
+  ggplot(aes(x=`Run ID`, y=Lh, fill=`Run ID`, alpha=0.5)) +
+  geom_violin(trim = FALSE, aes(text=`Run ID`), color=NA) +
+  geom_boxplot(width = 0.1, aes(color=`Run ID`)) +
+  scale_fill_manual(values=unname(run_colors)) +
+  scale_color_manual(values=unname(run_colors)) +
+  labs(x="", y="Log Likelihood") +
+  theme(legend.position = "none")
+
+## plotly-fy
+ggplotly(gg_chain_violins, tooltip = "text") %>%
+  layout(boxgap = 0.9)
+  
+
+```
+
+
+MCMC Diagnostics {data-icon="fa-stethoscope"}
+=====================================  
+
+Column {data-width=50%}
+-----------------------------------------------------------------------
+
+### Effective Sampling Sizes
+
+```{r}
+ESS<-bt$chain %>%
+  select(`Run ID`,starts_with(c("Lh","q","Root"))) %>%
+  group_by(`Run ID`) %>%
+  summarize_all(.funs=function(x)ifelse(any(is.na(x)),NA,effectiveSize(x))) %>%
+  ungroup() %>%
+  pivot_longer(-`Run ID`, names_to = "Parameter", values_to="ESS") %>%
+  pivot_wider(names_from = `Run ID`, values_from = ESS)
+  
+# plot
+ESS %>%
+  mutate_if(is.numeric, round, 2) %>%
+  reactable(
+    defaultPageSize = 50,
+    defaultColDef = colDef(
+    style = function(value) {
+      if (is.character(value)) {
+        color <- "black"
+      } else if (!is.na(value) & value > 2000 ) {
+        color <- "#008000"
+      } else if (!is.na(value) & value < 2000) {
+        color <- "#e00000"
+      } else {
+        color <- "black"
+      }
+      list(color = color)
+    }
+    )
+  )
+
+```
+
+### Mean Acceptance Rates
+
+```{r}
+# mean values
+acceptance_rate$schedule %>%
+  group_by(`Run ID`) %>%
+  select(`Rates - Accepted`, `Sample Ave Acceptance`, `Total Ave Acceptance`) %>%
+  summarise_all(mean) %>%
+  mutate_if(is.numeric, round, 2) %>%
+  reactable()
+```
+
+### Total Average Acceptance Rates
+```{r}
+# plot of total average acceptances
+gg_acc<-acceptance_rate$schedule %>%
+  group_by(`Run ID`) %>%
+  mutate(Iterations = 1:n(),
+         `Total Ave Acceptance`=`Total Ave Acceptance`*100) %>%
+  ggplot(aes(x=Iterations,y=`Total Ave Acceptance`, color=`Run ID`)) +
+  scale_colour_manual(values=unname(run_colors)) +
+  labs(y="Acceptance (%)") +
+  geom_line() +
+  theme(legend.position = "none")
+  
+# plotly-fy
+ggplotly(gg_acc)
+```
+
+
+
+Column {data-width=50%}
+-----------------------------------------------------------------------
+
+### Maximum Likelohood Autocorrelation
+
+```{r}
+# calculate auto correlations
+bt_acf<-list()
+for(i in unique(bt$chain_clean$`Run ID`)){
+  tmp_acf<-acf(plot=FALSE,
+               bt$chain_clean %>%
+                 filter(`Run ID`==i) %>%
+                 pull(Lh))
+  bt_acf[[i]]<-tibble(Lag=c(tmp_acf$lag), acf=c(tmp_acf$acf))
+}
+
+# plot
+gg_autocorr<-bind_rows(bt_acf,.id = "Run ID") %>%
+  ggplot(aes(x=Lag, y=acf, color=`Run ID`)) +
+  geom_hline(yintercept = 0, size=0.5) +
+  geom_point(size = 2) +
+  geom_segment(aes(xend = Lag, yend = 0), size = 0.75) +
+  scale_colour_manual(values=unname(run_colors)) +
+  labs(y="Autocorrelation Function") +
+  facet_wrap(~`Run ID`, ncol = 1) +
+  theme(legend.position = "none")
+
+#plotlyfy
+ggplotly(gg_autocorr)
+
+```
+
+
+Root State & Rate Estimates {data-orientation=rows, data-icon="fa-chart-pie"}
+=====================================  
+
+Row
+-----------------------------------------------------------------------
+
+### Root State
+
+```{r fig.cap='Root state probabilities for each run'}
+
+if(comparison_mode) {
+  bt$chain_clean %>%
+  group_by(`Run ID`) %>%
+  select(starts_with("Root")) %>%
+  summarise_all(mean) %>%
+  pivot_longer(-`Run ID`,names_to="State",values_to="prob") %>%
+  mutate(State=str_remove_all(State, ".*P\\(|\\)")) %>%
+  ggplot(aes(x=`Run ID`,y=prob, fill=State)) +
+  geom_bar(stat="identity") +
+  coord_polar("y") +
+  scale_fill_manual(values = traits_colors) +
+  theme_void() + 
+  theme(legend.position = "bottom")
+} else {
+  bt$chain_clean %>%
+     select(starts_with("Root")) %>%
+     summarise_all(mean) %>%
+     pivot_longer(everything(),names_to="State",values_to="prob") %>%
+     mutate(State=str_remove_all(State, ".*P\\(|\\)")) %>%
+     ggplot(aes(x="",y=prob, fill=State)) +
+     geom_bar(stat="identity") +
+     coord_polar("y") +
+     scale_fill_manual(values = traits_colors) +
+     theme_void() + 
+     theme(legend.position = "bottom")
+
+}
+
+
+
+```
+
+### Transition Rates Network
+
+```{r fig.cap='Mean transition rates'}
+
+# calculate mean transition rates based on all concatenated chains if the runs are the same, if not, then transitions are shown for each chain separately
+
+if(!comparison_mode){
+  
+  mean_transition_rates<-bt$chain_clean %>%
+    select(starts_with("q")) %>%
+    summarise_all(mean) %>%
+    pivot_longer(everything(),names_to="parameter", values_to = "rate") %>%
+    mutate(from=str_sub(parameter, 2,2), to=str_sub(parameter, 3,3)) %>%
+    arrange(from) %>%
+  select(from, to, rate) %>%
+  pivot_wider(names_from = to, values_from = rate) %>%
+  select(from, .$from) %>%
+  column_to_rownames("from")
+  
+  # plot
+  
+  qgraph(mean_transition_rates,
+       
+       # nodes:
+         shape="rectangle",
+         vsize=10,
+         node.height=1,
+         label.cex=3,
+         label.scale = TRUE,
+         label.color=traits_colors[rownames(mean_transition_rates)],
+       
+       # edges:
+         edge.labels=T,
+         edge.label.cex=2,
+         edge.label.bg="grey90",
+         #minimum=0.03, # threshold for edges to include
+         #edge.width=1.5,
+         posCol="black",
+         fade=T,
+       
+       # themes and layout:
+         # theme="TeamFortress",
+         layout="circular",
+         normalize=TRUE,
+         directed=TRUE)
+
+} else {
+  
+  mean_transition_rates<-bt$chain_clean %>%
+    group_by(`Run ID`) %>%
+    select(starts_with("q")) %>%
+    summarise_all(mean) %>%
+    pivot_longer(-`Run ID`,names_to="parameter", values_to = "rate") %>%
+    mutate(from=str_sub(parameter, 2,2), to=str_sub(parameter, 3,3)) %>%
+    arrange(from) %>%
+    select(-parameter) %>%
+    group_split(`Run ID`,.keep = F) %>%
+    setNames(sort(unique(bt$chain_clean$`Run ID`))) %>%
+    as.list()
+
+  for(i in 1:length(mean_transition_rates)){
+    mean_transition_rates[[i]]<-mean_transition_rates[[i]] %>%
+      pivot_wider(names_from = to, values_from = rate) %>%
+  select(from, .$from) %>%
+  column_to_rownames("from")
+  }  
+  
+  # plot
+  par(mfrow=c(1,length(mean_transition_rates)))
+for(i in 1:length(mean_transition_rates)){
+  
+  qgraph(mean_transition_rates[[i]],
+       # title:
+         title=names(mean_transition_rates)[i],
+         
+       # nodes:
+         shape="rectangle",
+         vsize=10,
+         node.height=1,
+         label.cex=3,
+         label.scale = TRUE,
+         label.color=traits_colors[rownames(mean_transition_rates[[i]])],
+       
+       # edges:
+         edge.labels=T,
+         edge.label.cex=2,
+         edge.label.bg="grey90",
+         #minimum=0.03, # threshold for edges to include
+         #edge.width=1.5,
+         posCol="black",
+         fade=T,
+       
+       # themes and layout:
+         # theme="TeamFortress",
+         layout="circular",
+         normalize=TRUE,
+         directed=TRUE)
+}
+  
+  
+}
+
+```
+
+
+
+Row
+-----------------------------------------------------------------------
+
+### Transition Rates Densities
+
+```{r fig.cap='Density distributions of rate transition estimates. Line show mean rates.'}
+
+if(comparison_mode) {
+  rate_density_gg<-bt$chain_clean %>%
+  group_by(`Run ID`) %>%
+  select(starts_with("q")) %>%
+  pivot_longer(-`Run ID`, names_to = "transition", values_to = "rate") %>%
+  ggplot(aes(x=rate)) +
+  geom_density(alpha=0.75, fill="grey90",color=NA) +
+  geom_vline(data=. %>%
+               group_by(`Run ID`, transition) %>%
+    summarise(rate=mean(rate)),
+    aes(xintercept=rate, linetype="dashed")) +
+  facet_grid(`Run ID`~transition, scales = "free") +
+  theme(legend.position = "none")
+  
+  #plotlyfy
+  ggplotly(rate_density_gg)
+} else {
+  
+  rate_density_gg<-bt$chain_clean %>%
+  select(starts_with("q")) %>%
+  pivot_longer(everything(), names_to = "transition", values_to = "rate") %>%
+  ggplot(aes(x=rate)) +
+  geom_density(alpha=0.75, fill="grey90",color=NA) +
+  geom_vline(data=. %>%
+               group_by(transition) %>%
+    summarise(rate=mean(rate)),
+    aes(xintercept=rate, linetype="dashed")) +
+  facet_wrap(~transition, scales = "free") +
+  theme(legend.position = "none")
+  
+  #plotlyfy
+  ggplotly(rate_density_gg)
+}
+
+
+```
+
+Node Reconstructions {data-orientation=columns, data-icon="fa-project-diagram"}
+=====================================  
+
+
+```{r}
+if(is.null(bt$tags)) {
+  cat("No nodes were set for ancestral state reconstrucitions")
+}else{
+  
+
+# make the ancestral states df
+anc_df<-bt$tags %>%
+  left_join(bt$recon, by="Tag")
+
+
+# get node numbers for ancestral states
+node_num<-c()
+for(i in 1:nrow(anc_df)){
+  tips<-unlist(str_split(anc_df$Species[i], " "))
+  node_num[i]<-getMRCA(tre, tips)
+}
+
+## add node numbers and extract mean probabilities per node state
+anc_df<-anc_df %>%
+  mutate(node_num=node_num) %>%
+  left_join(
+    bt$chain %>%
+      select(contains(anc_df$Node)) %>%
+      summarise_all(mean, na.rm=TRUE) %>%
+      pivot_longer(everything()) %>%
+      mutate(name=str_remove_all(name, "P\\(|\\)")) %>%
+      separate(name, into=c("Node","Prob"), sep=" ") %>%
+      pivot_wider(values_from = value, names_from = Prob),
+    by="Node")
+
+## add trait data to tree
+tre$traits<-dat %>%
+  arrange(match(Species, tre$tip.label)) %>%
+  pull(Trait)
+}
+```
+
+Column {data-width=30%}
+-----------------------------------------------------------------------
+
+### Node Reconstruction / Fossilisation
+
+```{r}
+if(exists("anc_df")){
+  anc_df %>%
+    select(Tag, Node, Species,unique(dat$Trait)) %>%
+    mutate_if(is.numeric, round, 2) %>%
+    reactable()
+} else {
+  cat("No nodes were set for ancestral state reconstrucitions")
+}
+
+```
+
+
+Column {data-width=70%}
+-----------------------------------------------------------------------
+
+### Phylogeny
+
+```{r fig.width=12}
+if(!is.null(bt$tags)){
+  plot(tre,
+       no.margin = T,
+       tip.color = traits_colors[tre$traits],
+       cex=ifelse(length(tre$tip.label)>30,0.1,1))
+  nodelabels(node = anc_df$node_num,pie = anc_df %>%
+               select(unique(dat$Trait)),
+             cex = 1,
+             piecol=traits_colors)
+  legend("topleft", legend = names(traits_colors), pch=15, col=traits_colors, bty="n")
+} else {
+  plot(tre,
+       no.margin = T,
+       cex=ifelse(length(tre$tip.label)>30,0.2,1))
+}
+```
+
+
+RevJ Model Reduction {data-orientation=columns, data-icon="fa-chart-area"}
+=====================================  
+
+Row
+-----------------------------------------------------------------------
+
+### Reverse Jump Model Sampling {data-height=30%}
+
+```{r}
+## check if RJ has been used
+rj<-"Model string" %in% colnames(bt$chain_clean)
+```
+
+
+```{r}
+if(rj){
+transition_rates<-bt$chain_clean %>%
+  select(starts_with("q")) %>%
+  pivot_longer(everything(), names_to = "transitions", values_to = "rates") %>%
+  group_by(transitions) %>%
+  summarise(`Mean Rate`=mean(rates),
+            `Median Rate`=median(rates),
+            `% Non-Zero`=(sum(rates!=0)/length(rates))*100,
+            ESS=effectiveSize(coda::mcmc(rates)),
+            HPD=HPDinterval(coda::mcmc(rates)) %>%
+              as_tibble() %>%
+              mutate_all(round, 2) %>%
+              unite("x",c(lower, upper),sep="-") %>% pull(x)
+            ) %>%
+  arrange(desc(`% Non-Zero`)) %>%
+  mutate_if(is.numeric, round, 2)
+
+# plot
+transition_rates %>%
+  reactable()
+} else {
+  cat("No Reverse Jump used")
+}
+
+```
+
+### Reverse Jump Model Ranking - Table {data-height=30%}
+
+```{r}
+if(rj){
+  model_ranking<-bt$chain_clean %>%
+    mutate(`Model string`=str_remove(`Model string`, "'")) %>%
+  count(`Model string`, name = "N sampled") %>%
+  mutate(`% sampled`=`N sampled`/sum(`N sampled`)*100) %>%
+  arrange(desc(`N sampled`)) %>%
+  mutate_if(is.numeric, round, 2) 
+
+# plot table
+model_ranking %>% 
+  reactable()
+}else {
+  cat("No Reverse Jump used")
+}
+
+```
+
+### Reverse Jump Model Ranking - Barchart {data-height=40%}
+
+```{r fig.width=12}
+if(rj){
+  revj_ranking_gg<-bt$chain_clean %>%
+  count(`Model string`, name = "N sampled") %>%
+  mutate(`% sampled`=`N sampled`/sum(`N sampled`)*100) %>%
+  arrange(desc(`N sampled`)) %>%
+  mutate(`Model string`=factor(`Model string`, levels = unique(`Model string`))) %>%
+  ggplot(aes(x=`Model string`, y=`% sampled`)) +
+  geom_bar(stat="identity")
+  
+  #plotlyfy
+  ggplotly(revj_ranking_gg)
+}else {
+  cat("No Reverse Jump used")
+}
+```
+
+
+Row
+-----------------------------------------------------------------------
+
+### % Non-zero transitions
+
+```{r fig.cap="edge numbers show % of the posterior the transition was non-zero"}
+
+if(rj){
+  ### Plot transition network for 0% non-zero 
+
+zero_matrix<-transition_rates %>%
+  select(`% Non-Zero`, transitions) %>%
+  mutate(transitions=str_remove(transitions, "q*")) %>%
+  separate(transitions, into=c("from","to"), sep = 1, remove = TRUE) %>%
+  mutate(`% Non-Zero`=round(`% Non-Zero`,1)) %>%
+  pivot_wider(names_from = to, values_from = `% Non-Zero`) %>%
+  select(from, .$from) %>%
+  column_to_rownames("from")
+
+# plot
+qgraph(zero_matrix,
+       #nodes:
+         shape="rectangle",
+         vsize=10,
+         node.height=1,
+         label.cex=3,
+         label.scale = TRUE,
+         label.color=traits_colors[rownames(zero_matrix)],
+       
+       # edges:
+         edge.labels=T,
+         edge.label.cex=2,
+         edge.label.bg="grey90",
+         #minimum=0.03, # threshold for edges to include
+         #edge.width=1.5,
+         posCol="black",
+         fade=T,
+       
+       # themes and layout:
+         # theme="TeamFortress",
+         layout="circular",
+         normalize=TRUE,
+         directed=TRUE)
+} else {
+  cat("No Reverse Jump used")
+}
+
+```
+
+### Three most frequently sampled model
+
+```{r fig.cap="edge numbers show transition rates"}
+if(rj){
+
+transitions<-na.omit(str_extract(colnames(bt$chain_clean), "q\\w+"))
+
+rj_models<-str_replace_all(model_ranking$`Model string`, "Z", "-1")
+
+rj_models<-enframe(rj_models, name = "rank", value = "cat") %>%
+  separate(cat,sep = " ",into =transitions ) %>%
+  mutate_at(vars(starts_with("q")), as.numeric) %>%
+  mutate_at(vars(starts_with("q")), ~.+1)
+  
+# make list of model matrices
+rj_model_matrix<-list()
+
+for(i in 1:nrow(rj_models)){
+  rj_model_matrix[[i]]<-rj_models %>%
+    filter(rank==i) %>%
+    pivot_longer(-rank,names_to="parameter", values_to = "rate") %>%
+    mutate(from=str_sub(parameter, 2,2), to=str_sub(parameter, 3,3)) %>%
+    arrange(from) %>%
+  select(from, to, rate) %>%
+  pivot_wider(names_from = to, values_from = rate) %>%
+  select(from, .$from) %>%
+  column_to_rownames("from")
+}
+
+# plot first 3 models
+par(mfrow=c(1,3))
+for(i in 1:3) {
+  qgraph(rj_model_matrix[[i]],
+       #nodes:
+         shape="rectangle",
+         vsize=10,
+         node.height=1,
+         label.cex=3,
+         label.scale = TRUE,
+         label.color=traits_colors[rownames(rj_model_matrix[[i]])],
+       
+       # edges:
+         edge.labels=T,
+         edge.label.cex=5,
+         edge.label.bg="grey90",
+         #minimum=0.03, # threshold for edges to include
+         #edge.width=1.5,
+         posCol="black",
+         fade=F,
+       
+         # themes and layout:
+         # theme="TeamFortress",
+         layout="circular",
+         normalize=TRUE,
+         directed=TRUE)
+}
+
+} else {
+  cat("No Reverse Jump used")
+}
+par(mfrow=c(1,1))
+
+```
+
+Model Comparison - LogBF {data-icon="fa-not-equal"}
+=====================================  
+
+```{r}
+# check if stones file exists
+st<-exists("stones")
+```
+
+
+Column {data-width=50%}
+-----------------------------------------------------------------------
+
+### Stepping Stone Sampler {data-height=90%}
+
+```{r}
+if(st){
+  stones$header %>%
+    reactable()
+} else {
+  cat("No stepping stones sampler set")
+}
+```
+
+
+### Log Marginal Likelihood {data-height=7%}
+
+```{r}
+if(st){
+  stones$`marginal likelihood` %>%
+    mutate_if(is.numeric, round, 2) %>%
+    reactable(defaultPageSize = 2)
+} else {
+  cat("No stepping stones sampler set")
+}
+
+```
+
+### Log Bayes Factor {data-height=3%}
+
+```{r}
+if(st){
+  
+## calculate log Bayes Factor (x1=complex model, x2=simple model)
+LogBF<-function(mod1,mod2){2*(mod1-mod2)}
+
+### rank models in decreasing complexity
+complexity_rank<-bt$chain %>% 
+  select(-c(Iteration, Lh, `Tree No`)) %>%
+  group_by(`Run ID`) %>%
+  slice_head(n=1) %>%
+  pivot_longer(-`Run ID`) %>%
+  drop_na() %>%
+  count() %>%
+  arrange(desc(n)) %>%
+  pull(`Run ID`)
+
+### select most complex and next most complex model
+
+mod1=complexity_rank[1]
+mod2=complexity_rank[2]
+
+### calculate logBF
+log_bf<-LogBF(mod1=stones$`marginal likelihood` %>%
+                select(all_of(mod1)) %>% pull(),
+              mod2=stones$`marginal likelihood` %>%
+                select(all_of(mod2)) %>%
+                pull()) %>%
+  round(2)
+
+# return Bayes Factor
+cat(paste0("Log Bayes Factor: ",LogBF(mod1=stones$`marginal likelihood` %>%
+                                        select(all_of(mod1)) %>% pull(),
+                                      mod2=stones$`marginal likelihood` %>%
+                                        select(all_of(mod2)) %>% 
+                                        pull()) %>%
+                                        round(2),
+            "\nThe complex model (",mod1, ") is a ",ifelse(log_bf>0,"better","worse")," fit.")
+            )
+} else {
+  cat("No stepping stones sampler set")
+}
+```
+
+
+Column {data-width=50%}
+-----------------------------------------------------------------------
+
+### Stone Power
+
+```{r fig.width=12}
+if(st){
+  stones_pow_gg<-stones$stones %>%
+    ggplot(aes(x=`Stone No`, y=Power, colour=`Run ID`)) +
+    geom_line() +
+    theme(legend.position = "none")
+  
+  #plotlyfy
+  ggplotly(stones_pow_gg)
+  
+} else {
+  cat("No stepping stones sampler set")
+}
+
+```
+
+
+### Stone Marginal Likelihood
+
+```{r fig.width=12}
+if(st){
+  stones_marml_gg<-stones$stones %>%
+    ggplot(aes(x=`Stone No`, y=`Stone MLh`, colour=`Run ID`)) +
+    geom_line() +
+    theme(legend.position = "bottom") +
+    theme(legend.position = "none")
+  
+  #plotlyfy
+  ggplotly(stones_marml_gg)
+  
+} else {
+  cat("No stepping stones sampler set")
+}
+
+```
+
+
+### Running Marginal Likelihood
+
+```{r fig.width=12}
+if(st){
+  running_marml_gg<-stones$stones %>%
+    ggplot(aes(x=`Stone No`, y=`Running MLh`, colour=`Run ID`)) +
+    geom_line() +
+    theme(legend.position = "bottom") +
+    theme(legend.position = "none")
+  
+  #plotlyfy
+  ggplotly(running_marml_gg)
+  
+} else {
+  cat("No stepping stones sampler set")
+}
+
+```
+

@@ -6,7 +6,6 @@ library(shinyFiles)
 library(tidyverse)
 library(plotly)
 library(reactable)
-library(shinybusy)
 library(shinyalert)
 
 # ============================================
@@ -14,8 +13,11 @@ library(shinyalert)
 read_log<-function(filePath, abbrev_length=20){
   
   ## read file names
-  log_files<-list.files(filePath, pattern = "Log.txt")
-  log_paths<-list.files(filePath, pattern = "Log.txt", full.names = TRUE)
+  #log_files<-list.files(filePath, pattern = "Log.txt")
+  #log_paths<-list.files(filePath, pattern = "Log.txt", full.names = TRUE)
+  log_files<-basename(filePath)
+  log_paths<-file.path(filePath)
+  #log_names<-str_remove_all(log_files, pattern="\\.Log\\.txt")
   log_names<-str_remove_all(log_files, pattern="\\.Log\\.txt")
   log_names_abbr<-abbreviate(log_names,minlength=abbrev_length)
   
@@ -33,7 +35,8 @@ read_log<-function(filePath, abbrev_length=20){
     
     for(i in 1:length(log_files)){
       chain_list[[i]]<-read_tsv(log_paths[i],
-                                skip=grep(pattern = "Iteration\\tLh", read_lines(log_paths[i], n_max=Inf))-1,
+                                skip=grep(pattern = "Iteration\\tLh",
+                                          read_lines(log_paths[i], n_max=Inf))-1,
                                 col_names = TRUE,
                                 na=c("",NA, "--")) %>%
         discard(~all(is.na(.)))

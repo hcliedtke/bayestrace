@@ -1,0 +1,12 @@
+1
+2
+LogFile Artiodactyl_multistate_run2
+sample 1000
+BurnIn 5000
+iterations 2000500000
+PriorAll exp 10
+AddTag TVarNode Sheep Goat Cow Buffalo Pronghorn
+AddNode VarNode TVarNode
+AddTag TRecNode Porpoise Dolphin FKWhale Whale
+AddNode RecNode TRecNode
+Run
