@@ -1,5 +1,7 @@
 ui <- fluidPage(style='padding:100px;',
-                # use this in non shinydashboard app
+                # app title
+                title = "BayesTrace",
+                # use this in non-shinydashboard apps to get e.g. valueboxes
                 useShinydashboard(),
                 ## 
                 
@@ -15,17 +17,29 @@ ui <- fluidPage(style='padding:100px;',
                 fluidRow(style='padding:30px;margin:10px;background-color:#f7f6f2;border-radius:10px',
                          div(h3("Run Characteristics")),
                          shinydashboard::valueBoxOutput(outputId = "value_n_logs",width=4),
-                         shinydashboard::valueBox(icon = icon("not-equal"), width=4, color="maroon",
-                                                  "Run Type", value="mixed"),
-                         shinydashboard::valueBox(icon = icon("link"), width=4, color="orange",
-                                                  "Stones", value="No")
+                         shinydashboard::valueBoxOutput(outputId = "run_mode", width = 4),
+                         shinydashboard::valueBoxOutput(outputId = "stones", width = 4)
                 ),
                 fluidRow(style='padding:30px;margin:10px;background-color:#f7f6f2;border-radius:10px',
                          div(h3("Live MCMC trace")),
                          plotlyOutput("chainPlot")
                 ),
                 fluidRow(
-                  div(p("Copyright statement and contact/more info"))
-                  )
+                  div(
+                      p(style="text-align:center",
+                        "Copyright (c) 2023 H. Christoph Liedtke. All rights reserved.This work is licensed under the terms of the ",tags$a(
+                          "MIT license",
+                          target = "_blank",
+                          href = "https://opensource.org/licenses/MIT")),
+                      p(style="text-align:center",
+                        "For more information and to post bugs, use the ",
+                        tags$a(
+                          "GitHub Page",
+                          target = "_blank",
+                          href = "https://github.com/hcliedtke/bayestrace"))
+                      )
+                )
+                      
+                         
 )
 

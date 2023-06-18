@@ -3,20 +3,6 @@ server <- function(input,output,session){
   # global server settings
   options(shiny.maxRequestSize=30*1024^2) 
   
-  #======================
-  # read in user-specified file
-## data <- reactive({
-##   req(input$file1)
-##   file_path<-input$file1$datapath
-##   #file_path<-file1$datapath
-##   if(is.null(input$file1)){return()}
-##   read_tsv(file_path,
-##            skip=grep(pattern = "Iteration\\tLh",
-##                      read_lines(file_path, n_max=Inf))-1,
-##            col_names = TRUE, na=c("",NA, "--")) %>%
-##     discard(~all(is.na(.))) %>%
-##     filter(row_number() %in% floor(seq(1, n(), length.out=1000)))
-# })
   
   #=======================
   # help button
@@ -46,7 +32,7 @@ server <- function(input,output,session){
 ##      file_selected <- parseFilePaths(volumes, input$GetFile)
 ##      v$path <- as.character(file_selected$datapath)
 ##      req(v$path)
-##      v$data <- reactiveFileReader(1000, session, filePath = v$path, readFun = read_log)
+##      v$data <- reactiveFileReader(1000, session, filePath = v$path, readFun = read_chain)
 ##  })
 ##  
 ##  
@@ -67,7 +53,7 @@ server <- function(input,output,session){
   #=======================
   # read user-specified BayesTraits directory
 
-  home <- normalizePath("../")
+  home <- normalizePath("../") ### CHANGE THIS TO ~/
   home <- c('home' = home) 
   
   shinyDirChoose(input, 'folder', roots = home)
@@ -87,14 +73,14 @@ server <- function(input,output,session){
   observeEvent(path(), {
    log_filename <- list.files(path=path(), pattern="Log.txt")
     
-    req(length(file.exists(file.path(path(), log_filename))) > 0)
-    if(file.exists(file.path(path(), log_filename))) {
+    req(length(log_filename) > 0)
+    if(length(log_filename) > 0) {
       
-      #for(i in 1:length())
-      fileReaderData <- reactiveFileReader(1000,
-                                           session,
-                                           filePath = file.path(path(), log_filename),
-                                           readFun = read_log)
+    fileReaderData <-reactiveFileReader(1000,
+                                          session,
+                         filePath = file.path(path(), log_filename[1]),
+                         readFun = read_chain)
+    
       
       #======================= 
       # render plotly
@@ -123,19 +109,33 @@ server <- function(input,output,session){
   #=======================
   # gather data to generate value boxes
   
-  n_logs <- reactive({
-    if (is.null(input$folder)) return(NULL)
-    list.files(path=path(), pattern="Log.txt") %>% length()
+  run_info <- reactive({
+    req(input$folder)
+    if(is.null(input$folder)) return(NULL)
+    get_run_info(dir_path=path())
   })
+  
 
   output$value_n_logs <- shinydashboard::renderValueBox({
-    shinydashboard::valueBox(value = n_logs(),
+    shinydashboard::valueBox(value = run_info()$n_runs,
                              subtitle = "Log files found:",
                              icon = icon("clipboard"),
                              color="teal")
   })
+ 
+  output$run_mode <- shinydashboard::renderValueBox({
+    shinydashboard::valueBox(value = run_info()$mode,
+                             subtitle = "Mode:",
+                             icon = icon("not-equal"),
+                             color="maroon")
+  })
   
-  
+  output$stones <- shinydashboard::renderValueBox({
+    shinydashboard::valueBox(value = run_info()$stones %>% as.character(),
+                             subtitle = "Stones:",
+                             icon = icon("link"),
+                             color="orange")
+  })
   
   #=======================
   # render Rmd report
