@@ -9,11 +9,17 @@
 
 read_bt_log<-function(x, abbrev_length=20){
   
-  ## read file names
-  log_files<-list.files(x, pattern = "Log.txt")
-  log_paths<-list.files(x, pattern = "Log.txt", full.names = TRUE)
-  log_names<-str_remove_all(log_files, pattern="\\.Log\\.txt")
+  ### read log header
+  header_list<-list()
+  log_paths<-x
+  log_names<-str_remove_all(names(x), pattern="\\.Log\\.txt")
   log_names_abbr<-abbreviate(log_names,minlength=abbrev_length)
+  
+  ## read file names
+  #log_files<-list.files(x, pattern = "Log.txt")
+  #log_paths<-list.files(x, pattern = "Log.txt", full.names = TRUE)
+  #log_names<-str_remove_all(log_files, pattern="\\.Log\\.txt")
+  #log_names_abbr<-abbreviate(log_names,minlength=abbrev_length)
   
   ## make empty lists
   header_list<-list()
@@ -153,13 +159,3 @@ read_bt_log<-function(x, abbrev_length=20){
   return(df_list)
 }
 
-
-## test
-#. setwd("~/Documents/GitHub/bayestrace/bayestrace_flex/")
-#. x="./examples/Artiodactyl_multistates_fossilised/"
-#. test<-read_bt_log(x)
-#. test$chain
-#. test$header
-#. test$priors
-#. test$tags
-#. test$recon

@@ -10,10 +10,15 @@
 read_bt_schedule<-function(x, abbrev_length=20){
   
   ## read file names
-  sched_files<-list.files(x, pattern = "Schedule.txt")
-  sched_paths<-list.files(x, pattern = "Schedule.txt", full.names = TRUE)
-  sched_names<-str_remove_all(sched_files, pattern="\\.Schedule\\.txt")
+  sched_paths<-x
+  sched_names<-str_remove_all(names(x), pattern="\\.Log\\.txt")
   sched_names_abbr<-abbreviate(sched_names,minlength=abbrev_length)
+  
+  
+  #sched_files<-list.files(x, pattern = "Schedule.txt")
+  #sched_paths<-list.files(x, pattern = "Schedule.txt", full.names = TRUE)
+  #sched_names<-str_remove_all(sched_files, pattern="\\.Schedule\\.txt")
+  #sched_names_abbr<-abbreviate(sched_names,minlength=abbrev_length)
   
   
   ## make empty lists
@@ -21,7 +26,7 @@ read_bt_schedule<-function(x, abbrev_length=20){
   schedule_list<-list()
 
   ##
-  for(i in 1:length(sched_files)){
+  for(i in 1:length(sched_paths)){
     
     ## find 1st line of table
     first_line=grep(pattern = "^Rate Tried", read_lines(sched_paths[i], n_max=20))-1

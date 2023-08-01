@@ -2,7 +2,6 @@
 library(shiny)
 library(shinydashboard)
 library(shinyWidgets)
-library(shinyFiles)
 library(tidyverse)
 library(plotly)
 library(reactable)
@@ -33,16 +32,17 @@ run_colors <- c(
 )
 
 # ============================================
-# function to read log file header
+# function to read log file header. Takes path to files
 
-read_header<-function(dir_path){
+read_header<-function(file_path){
   
   ### read log header
   header_list<-list()
-  log_paths<-list.files(path=dir_path, pattern="Log.txt", full.names = T)
-  log_files<-basename(log_paths)
+  #log_paths<-list.files(path=dir_path, pattern="Log.txt", full.names = T)
+  log_paths<-file_path
+  #log_files<-basename(log_paths)
   
-  for(i in 1:length(log_files)){
+  for(i in 1:length(log_paths)){
     last_line=grep(pattern = "^\\s+|^\\t+", read_lines(log_paths[i], n_max=100))[1]-2 # finds first line with a space or tab as the first character, then backtraces 2.
     
     header_list[[i]]<-read.delim(log_paths[[i]],header = T,nrows = last_line-1, sep=":") %>%
@@ -58,49 +58,41 @@ read_header<-function(dir_path){
 # ============================================
 # function to check whether input is correct and if not, provide informative error messages
 
-input_check<-function(dir_path){
+input_check<-function(file_index){
+  
+  ### make empty list
+  
+  input_check<-list()
+  
   ### check if log file exists
+  input_check$logs=any(file_index()$filtype=="log")
+  
+  ### check that only one tree file has been uploaded
+  input_check$trees=length(file_index()$filtype=="tree")==1
+  
+  ### check if all files in the log have been uploaded
+  
+ # read_header(file_path= file_index %>%
+ #               filter(filetype=="log") %>%
+#                pull(filepath))
+    
+  
   
   ### check if run modes are different
   
+  
+  
 }
 
-
-# ============================================
-# function to gather run info
-
-get_run_info<-function(dir_path) {
-  
-  # make empty list
-  run_info<-list()
-  
-  # read log header
-  header_list<-read_header(dir_path=dir_path)
-  
-  ## count number of log files
-  run_info$n_runs<-header_list %>% length()
-  
-  ## check if stones have been run
-  run_info$stones<-list.files(path=dir_path, pattern="Stones.txt") %>% length() > 0
-  
-  ## check run mode
-  run_info$mode<-case_when(
-    any(str_detect(header_list[[1]]$X, "Discrete")) ~ "Discrete",
-    any(str_detect(header_list[[1]]$X, "MultiState")) ~ "MultiState"
-  )
-  
-  # return list
-  return(run_info)
-}
 
 
 # ============================================
 # function to read chain from the log file
-read_chain<-function(filePath){
+read_chain<-function(file_index){
   
   ## read file names
-  log_files<-basename(filePath)
-  log_paths<-file.path(filePath)
+  log_files<-basename(file_index$filename)
+  log_paths<-file.path(file_index$filepath)
   log_names<-str_remove_all(log_files, pattern="\\.Log\\.txt")
   
   # if only one log file

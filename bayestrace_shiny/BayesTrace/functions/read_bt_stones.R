@@ -10,9 +10,8 @@
 read_bt_stones<-function(x,abbrev_length=20){
   
   ## read file names
-  stones_files<-list.files(x, pattern = "Stones.txt")
-  stones_paths<-list.files(x, pattern = "Stones.txt", full.names = TRUE)
-  stones_names<-str_remove_all(stones_files, pattern="\\.Stones\\.txt")
+  stones_paths<-x
+  stones_names<-str_remove_all(names(x), pattern="\\.Stones\\.txt")
   stones_names_abbr<-abbreviate(stones_names,minlength=abbrev_length)
   
   
@@ -22,7 +21,7 @@ read_bt_stones<-function(x,abbrev_length=20){
   marLik_list<-list()
   
   ##
-  for(i in 1:length(stones_files)){
+  for(i in 1:length(stones_paths)){
     
     ## find 1st line of table
     first_line=grep(pattern = "^Stone No", read_lines(stones_paths[i], n_max=20))-1

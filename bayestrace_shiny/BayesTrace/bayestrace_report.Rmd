@@ -7,7 +7,7 @@ output:
 editor_options: 
   chunk_output_type: console
 params:
-  dir_path: dir_path
+  file_index: file_index
 ---
 
 <div class="header">
@@ -27,6 +27,30 @@ library(coda)
 library(ape)
 library(RColorBrewer)
 
+# Define file paths and names
+file_index=params$file_index
+
+log_path<-params$file_index %>%
+  filter(filetype=="log") %>%
+  select(filename, filepath) %>%
+  deframe()
+
+sched_path<-params$file_index %>%
+  filter(filetype=="schedule") %>%
+  select(filename, filepath) %>%
+  deframe()
+
+stones_path<-params$file_index %>%
+  filter(filetype=="stones") %>%
+  select(filename, filepath) %>%
+  deframe()
+
+tree_path <- file_index %>%
+  filter(filetype=="tree") %>%
+  pull(filepath)
+
+traits_path <- NA
+
 
 # Define EXTRA burnin (proportion of chain to keep. Default is 1 (keep entire chain))
 burnin=1
@@ -42,12 +66,6 @@ abbrev_length=20
 source("./functions/read_bt_log.r")
 source("./functions/read_bt_schedule.r")
 source("./functions/read_bt_stones.r")
-
-
-# Define path to files
-
-# multistates example
-dir_path=params$dir_path
 
 
 # global themes
@@ -81,14 +99,10 @@ Data input {data-orientation=columns, data-icon="fa-home"}
 
 ```{r message=FALSE, warning=FALSE}
 # load BayesTraits log file
-bt<-read_bt_log(dir_path)
+bt<-read_bt_log(log_path)
 
 # load input tree
-tre<-read.nexus(file = paste0(dir_path,"/",
-                              bt$header %>%
-                                filter(Options=="Tree File Name") %>%
-                                pull(2))
-                )
+tre<-read.nexus(file=tree_path)
 
 ## if multiPhylo, get majority rule consensus tree
 if(class(tre)=="multiPhylo"){
@@ -104,29 +118,31 @@ run_mode<-case_when(
 
 # load traits file
 
+traits_path<-file_index %>%
+                  filter(filename == 
+                    bt$header %>%
+                      filter(Options=="Data File Name") %>%
+                      pull(2)) %>%
+  pull(filepath)
+
 if(run_mode=="MultiState") {
-  dat<-read_tsv(file = paste0(dir_path,"/",bt$header %>%
-                                filter(Options=="Data File Name") %>%
-                                pull(2)),
+  dat<-read_tsv(file = traits_path,
               col_names = c("Species","Trait")
               )
 }
 if(run_mode=="Discrete") {
-  dat<-read_tsv(file = paste0(dir_path,"/",bt$header %>%
-                                filter(Options=="Data File Name") %>%
-                                pull(2)),
+  dat<-read_tsv(file = traits_path,
               col_names = c("Species","Trait1","Trait2")
               ) %>%
     mutate(Trait=paste(Trait1, Trait2, sep=","))
 }
  
 # load schedule files
-acceptance_rate<-read_bt_schedule(dir_path)
+acceptance_rate<-read_bt_schedule(sched_path)
 
 # load stones files
-if(list.files(dir_path, pattern = "Stones.txt") %>%
-   length() > 0){
-  stones<-read_bt_stones(dir_path)
+if(any(file_index$filetype %in% "stones")){
+  stones<-read_bt_stones(stones_path)
 }
 ```
 
