@@ -119,7 +119,7 @@
 
 body {
 	margin-left: 210px; /* Add a left margin to avoid content overlay */
-	padding-top: 60px
+	padding-top: 60px !important;
 }
 
 /*##################### chart areas */

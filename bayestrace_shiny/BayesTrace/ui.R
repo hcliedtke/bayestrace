@@ -26,11 +26,23 @@ ui <- fluidPage(style='padding:100px;',
                 fluidRow(style='padding:30px;margin:10px;background-color:#f7f6f2;border-radius:10px',
                          div(h3("Generate BayesTraits report")),
                          column(width=4,
-                                div(h4("file check"))
+                                div(h4("file check")),
+                                tableOutput("file_check")
                          ),
                          column(width=4,
-                                div(h4("Tuning parameters"))
-                         ),
+                                div(h4("Tuning parameters")),
+                                sliderInput("burnin", "Proportion of chains to discard as burnin (in addition to pre-set)",
+                                            min = 0, max = 1, value = 0, step=0.05
+                                ),
+                                numericInput("downsample",
+                                             "Down-sample all chains to keep # combined iterations:",
+                                             10000, min = 1, max = NA, step=1000),
+                                numericInput("abbrnames",
+                                             "Abbreviate log file names to # characters:",
+                                             20, min = 1, max = NA, step=1),
+                                textOutput("test")
+                                
+                                ),
                          column(width=4,
                                 downloadButton("report", "Generate report", class="btn-info")
                          ),

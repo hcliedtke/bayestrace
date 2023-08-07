@@ -47,7 +47,7 @@ server <- function(input,output,session){
   
   
   #=======================
-  # Plot value boxes
+  # Plot info boxes
   
   observeEvent(file_index(),{
     
@@ -137,6 +137,25 @@ server <- function(input,output,session){
      
  })
   
+  #=======================
+  # Verify input
+  observeEvent(file_index(),{
+    
+    output$file_check <- renderTable(colnames=F,
+                                     striped=T,
+                                     expr={
+      
+      expr=input_check(file_index=file_index())
+      })
+    
+  })
+  
+  #=======================
+  # declare fine-tune inputs
+  
+  user_burnin=reactive(input$burnin)
+  downsample=reactive(input$downsample)
+  abbrnames=reactive(input$abbrnames)
   
   #=======================
   # render Rmd report
@@ -153,7 +172,11 @@ server <- function(input,output,session){
       # call bayestrace report file and pass the input file directory to it
       
       rmarkdown::render("bayestrace_report.Rmd", output_file = f,
-                        params = list(file_index=file_index()),
+                        params = list(file_index=file_index(),
+                                      user_burnin=user_burnin(),
+                                      downsample=downsample(),
+                                      abbrnames=abbrnames(),
+                                      shinyfy=TRUE),
                         envir = new.env(parent = globalenv())
       )
     }

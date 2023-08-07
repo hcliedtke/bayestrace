@@ -5,9 +5,9 @@ account: hcliedtke
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 9328425
-bundleId: 7520236
+bundleId: 7536915
 url: https://hcliedtke.shinyapps.io/BayesTrace/
-when: 1690919386.87581
-lastSyncTime: 1690919386.87583
+when: 1691332081.00776
+lastSyncTime: 1691332081.00778
 asMultiple: FALSE
 asStatic: FALSE

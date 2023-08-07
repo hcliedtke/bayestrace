@@ -45,7 +45,7 @@ read_bt_log<-function(x, abbrev_length=20){
       discard(~all(is.na(.)))
   }
   
-  for(i in 1:length(log_files)){
+  for(i in 1:length(log_paths)){
     
   ## get headers
     first_line=1

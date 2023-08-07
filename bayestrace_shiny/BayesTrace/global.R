@@ -6,6 +6,13 @@ library(tidyverse)
 library(plotly)
 library(reactable)
 library(shinyalert)
+#flexdashboard libs
+library(knitr)
+library(flexdashboard)
+library(qgraph)
+library(coda)
+library(ape)
+library(RColorBrewer)
 
 # ============================================
 # Set themes  
@@ -60,27 +67,48 @@ read_header<-function(file_path){
 
 input_check<-function(file_index){
   
+  file_index=file_index
   ### make empty list
   
   input_check<-list()
   
   ### check if log file exists
-  input_check$logs=any(file_index()$filtype=="log")
+  input_check$logs=any(file_index$filetype=="log")
+  
+  ### check if schedule file exists
+  input_check$schedule=any(file_index$filetype=="schedule")
   
   ### check that only one tree file has been uploaded
-  input_check$trees=length(file_index()$filtype=="tree")==1
+  input_check$trees=length(which(file_index$filetype=="tree"))==1
   
   ### check if all files in the log have been uploaded
   
- # read_header(file_path= file_index %>%
- #               filter(filetype=="log") %>%
-#                pull(filepath))
-    
+  # read_header(file_path= file_index %>%
+  #               filter(filetype=="log") %>%
+  #                pull(filepath))
+  
   
   
   ### check if run modes are different
   
+  error_list<-list()
   
+  if(!input_check$logs) error_list$logs <-  "No log files found. Are you sure you have uploaded at least one file with the extension .Log.txt?"
+  
+  if(!input_check$schedule) error_list$schedule <- "No schedule files found. Are you sure you have uploaded at least one file with the extension .Schedule.txt?"
+  
+  if(!input_check$trees) error_list$trees <- "No tree file found. Are you sure you have uploaded at least one file with the extension .trees, or .tre"
+  
+  
+  ## enframe
+  if(length(error_list)>0){
+    errors<-error_list %>% 
+      enframe()
+  } else {
+    errors<-data.frame(x="All files uploaded correctly")
+  }
+  
+  return(errors)
   
 }
 
