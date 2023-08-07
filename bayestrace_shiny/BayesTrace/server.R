@@ -9,133 +9,153 @@ server <- function(input,output,session){
   observeEvent(input$help_btn, {
     # Show a simple modal
     shinyalert(title="Getting Started", type="info",
-    text = "To get started, select a folder that contains your BayesTraits output files. The folder should contain the following:
-    - a log file (.Log.txt)
-    - a shedule file (.Shedule.txt)
-    - a tree file (.trees)
+    text = "To get started, select some (or all) files in a folder that contains your BayesTraits output files. The selected files should contained at least one of these:
     
-    For any issues, drop me a line here: <url>"
+    1. a log file (.Log.txt)
+    2. a shedule file (.Shedule.txt)
+    3. a tree file (.trees)
+    
+    Optional files include:
+    
+    a) a stones file (.stones.txt)
+    
+    For any problems, raise an issue in the github repository (link at bottom of page)"
     
     )
   })
 
-##  #=======================
-##  # read user-specified mcmc chain file and update on file changes
-##  volumes = getVolumes()
-##  v = reactiveValues(path = NULL)
-##  
-##  observe({
-##    
-##      shinyFileChoose(input, "GetFile", roots = volumes, session = session)
-##      
-##      req(input$GetFile)
-##      file_selected <- parseFilePaths(volumes, input$GetFile)
-##      v$path <- as.character(file_selected$datapath)
-##      req(v$path)
-##      v$data <- reactiveFileReader(1000, session, filePath = v$path, readFun = read_chain)
-##  })
-##  
-##  
-##  
-##  #======================= 
-##  # render plotly
-##  
-##  output$plotOne <- renderPlotly({
-##    req(v$data)
-##    if(is.null(v$data())){return ()}
-##    plot_ly(data=v$data(),
-##            x=~Iteration, y=~Lh,
-##            type = 'scatter',
-##            mode = 'lines')
-##  })
-##  
- 
   #=======================
-  # read user-specified BayesTraits directory
-
-  home <- normalizePath("../") ### CHANGE THIS TO ~/
-  home <- c('home' = home) 
+  # Index user-specified BayesTraits files
   
-  shinyDirChoose(input, 'folder', roots = home)
-  
-  path <- reactive({
-    parseDirPath(roots = home, input$folder)
+  file_index<-reactive({
+    req(input$bt_files)
+    data.frame(filename=input$bt_files$name) %>%
+      mutate(
+        filetype=case_when(
+          str_detect(filename,"Log.txt") ~ "log",
+          str_detect(filename,"Schedule.txt") ~ "schedule",
+          str_detect(filename,"Stones.txt") ~ "stones",
+          str_detect(filename,"\\.tre\\w+$") ~ "tree",
+          TRUE ~ "unknown"),
+        filepath=input$bt_files$datapath
+        )
+               
   })
   
-  # check path is correct
-  #output$fileReaderText <- renderText({
-  # file.path(path(),
-  #  list.files(path=path(), pattern="Log.txt"))
-  #  })
-  
-  reac <- reactiveValues()
-  
-  observeEvent(path(), {
-   log_filename <- list.files(path=path(), pattern="Log.txt")
-    
-    req(length(log_filename) > 0)
-    if(length(log_filename) > 0) {
-      
-    fileReaderData <-reactiveFileReader(1000,
-                                          session,
-                         filePath = file.path(path(), log_filename[1]),
-                         readFun = read_chain)
-    
-      
-      #======================= 
-      # render plotly
-      
-      output$chainPlot <- renderPlotly({
-        req(fileReaderData())
-        if(is.null(fileReaderData())){return()}
-        
-        
-        gg_chain<-fileReaderData() %>%
-          as_tibble() %>%
-          ggplot(aes(x=Iteration, y=Lh, color=`Run ID`)) +
-          geom_line(alpha=0.75) +
-          scale_colour_manual(values=unname(run_colors)) +
-          theme(legend.position = "None")
-        
-        # plotly-fy
-        ggplotly(gg_chain) %>%
-          layout(legend = list(orientation = "h", x = 0, y =-0.2))
-        })
-      }
-      
-  })
+  # render file index table. uncomment for trouble shooting
+  output$fileindex <- renderTable(file_index())
   
   
   #=======================
-  # gather data to generate value boxes
+  # Plot info boxes
   
-  run_info <- reactive({
-    req(input$folder)
-    if(is.null(input$folder)) return(NULL)
-    get_run_info(dir_path=path())
+  observeEvent(file_index(),{
+    
+    #### INFO BOX: NUMBER OF LOG FILES
+    
+    output$value_n_logs <- shinydashboard::renderInfoBox({
+      shinydashboard::infoBox(value = sum(file_index()$filetype=="log", na.rm=T),
+                               title = "Log files found:",
+                               icon = icon("clipboard"),
+                               color="teal", fill=TRUE)
+    })
+    
+    #### INFO BOX: RUN TYPE
+    
+    header_list<-read_header(file_path=file_index() %>%
+                               filter(filetype=="log") %>%
+                               pull(filepath))
+                             
+    run_mode<-case_when(
+      any(str_detect(header_list[[1]]$X, "Discrete")) ~ "Discrete",
+      any(str_detect(header_list[[1]]$X, "MultiState")) ~ "MultiState"
+    )
+    
+    output$run_mode <- shinydashboard::renderInfoBox({
+      shinydashboard::infoBox(value = run_mode,
+                               title = "Mode:",
+                               icon = icon("not-equal"),
+                               color="maroon", fill=TRUE)
+    })
+    
+    
+    #### INFO BOX: STONES
+    
+    output$stones <- shinydashboard::renderInfoBox({
+          shinydashboard::infoBox(value = any(file_index()$filetype=="stones"),
+                                   title = "Stones:",
+                                   icon = icon("link"),
+                                   color="orange", fill=TRUE)
+    })
+    
+    
+    
   })
   
+    #======================= 
+    # Render log chains
+  
+  observeEvent(file_index(),{
+    
+    # extract mcmc
+    
+    tbl_mcmc<-read_chain(file_index=file_index() %>%
+                           filter(filetype=="log"))
+    
+     output$chainPlot <- renderPlotly({
+       
+       # plot chain 
+       gg_chain<-tbl_mcmc %>%
+         ggplot(aes(x=Iteration, y=Lh, color=`Run ID`)) +
+         geom_line(alpha=0.75) +
+         scale_colour_manual(values=unname(run_colors)) +
+         theme(legend.position = "none")
+       
+       # plotly-fy chain
+       ggplotly(gg_chain) %>%
+         layout(legend = list(orientation = "h", x = 0, y =-0.2))
+       
+       })
 
-  output$value_n_logs <- shinydashboard::renderValueBox({
-    shinydashboard::valueBox(value = run_info()$n_runs,
-                             subtitle = "Log files found:",
-                             icon = icon("clipboard"),
-                             color="teal")
-  })
- 
-  output$run_mode <- shinydashboard::renderValueBox({
-    shinydashboard::valueBox(value = run_info()$mode,
-                             subtitle = "Mode:",
-                             icon = icon("not-equal"),
-                             color="maroon")
+     output$violinPlot <- renderPlotly({
+       
+       # plot violins
+       gg_violin<-tbl_mcmc %>%
+         ggplot(aes(x=`Run ID`, y=Lh, color=`Run ID`, fill=`Run ID`)) +
+         geom_violin(alpha=0.75) +
+         scale_colour_manual(values=unname(run_colors)) +
+         scale_fill_manual(values=unname(run_colors)) +
+         theme(legend.position = "none",
+               axis.text.x = element_blank())
+       
+       # plotly-fy chain
+       ggplotly(gg_violin)
+       
+     })
+     
+     
+     
+ })
+  
+  #=======================
+  # Verify input
+  observeEvent(file_index(),{
+    
+    output$file_check <- renderTable(colnames=F,
+                                     striped=T,
+                                     expr={
+      
+      expr=input_check(file_index=file_index())
+      })
+    
   })
   
-  output$stones <- shinydashboard::renderValueBox({
-    shinydashboard::valueBox(value = run_info()$stones %>% as.character(),
-                             subtitle = "Stones:",
-                             icon = icon("link"),
-                             color="orange")
-  })
+  #=======================
+  # declare fine-tune inputs
+  
+  user_burnin=reactive(input$burnin)
+  downsample=reactive(input$downsample)
+  abbrnames=reactive(input$abbrnames)
   
   #=======================
   # render Rmd report
@@ -152,7 +172,11 @@ server <- function(input,output,session){
       # call bayestrace report file and pass the input file directory to it
       
       rmarkdown::render("bayestrace_report.Rmd", output_file = f,
-                        params = list(dir_path=path()),
+                        params = list(file_index=file_index(),
+                                      user_burnin=user_burnin(),
+                                      downsample=downsample(),
+                                      abbrnames=abbrnames(),
+                                      shinyfy=TRUE),
                         envir = new.env(parent = globalenv())
       )
     }

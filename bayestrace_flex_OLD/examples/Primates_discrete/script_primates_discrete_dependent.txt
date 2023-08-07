@@ -1,0 +1,6 @@
+3
+2
+LogFile Primates_discrete_dependent
+PriorAll exp 10
+Stones 100 1000
+Run

@@ -1,0 +1,9 @@
+1
+2
+LogFile Artiodactyl_fossilised_run3
+sample 1000
+BurnIn 5000
+iterations 20005000
+AddTag FNode Sheep Goat Cow Buffalo Pronghorn
+Fossil Node01 FNode D
+Run

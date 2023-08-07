@@ -3,22 +3,27 @@ title: "BayesTrace v1.0"
 output:
   flexdashboard::flex_dashboard:
     vertical_layout: fill
-    css: www/styles.css
+    css: ./www/styles.css
 editor_options: 
   chunk_output_type: console
 params:
-  dir_path: dir_path
+  file_index: file_index
+  user_burnin: user_burnin
+  downsample: downsample
+  abbrnames: abbrnames
+  shinyfy: shinyfy
 ---
 
 <div class="header">
-  <img src="www/bt_logo3.png"/>
+  <img src="./www/bt_logo3.png"/>
     <div class="headertext">
    </div>
 </div> 
 
-```{r setup, include=FALSE}
+```{r libraries, include=FALSE}
 # Load required packages
 library(flexdashboard)
+library(scales)
 library(tidyverse)
 library(plotly)
 library(reactable)
@@ -26,28 +31,41 @@ library(qgraph)
 library(coda)
 library(ape)
 library(RColorBrewer)
+library(visNetwork)
+
+# establish if running via shiny or locally
+eval_shiny<-ifelse(is.logical(params$shinyfy), TRUE, FALSE) 
+eval_local<-!eval_shiny
+
+```
 
 
-# Define EXTRA burnin (proportion of chain to keep. Default is 1 (keep entire chain))
-burnin=1
-
-# Define how many (random) iterations to keep for plotting (reduces load, default = 10,000)
-samples_max=10000
-
-# Define length of run names (abbrevaitions needed for improved visualization)
-abbrev_length=20
-
+```{r functions_and_theming, include=FALSE}
 # Load custom functions
-#setwd("~/Documents/git_projects/bayestrace/bayestrace_flex/")
-source("./functions/read_bt_log.r")
-source("./functions/read_bt_schedule.r")
-source("./functions/read_bt_stones.r")
+source("./functions/read_bt_log.R")
+source("./functions/read_bt_schedule.R")
+source("./functions/read_bt_stones.R")
 
+# create function to read just the header of the log files
+read_header<-function(file_path){
+  
+  ### read log header
+  header_list<-list()
+  #log_paths<-list.files(path=dir_path, pattern="Log.txt", full.names = T)
+  log_paths<-file_path
+  #log_files<-basename(log_paths)
+  
+  for(i in 1:length(log_paths)){
+    last_line=grep(pattern = "^\\s+|^\\t+", read_lines(log_paths[i], n_max=100))[1]-2 # finds first line with a space or tab as the first character, then backtraces 2.
+    
+    header_list[[i]]<-read.delim(log_paths[[i]],header = T,nrows = last_line-1, sep=":") %>%
+      mutate(X=str_remove_all(X, " "))
+  }  
+    # return header list
+    return(header_list)
+    
 
-# Define path to files
-
-# multistates example
-dir_path=params$dir_path
+}
 
 
 # global themes
@@ -75,20 +93,103 @@ run_colors <- c(
 ```
 
 
+```{r shinyinput, include=FALSE, eval=eval_shiny}
+### USE THIS CHUNK IF RUNNING FROM SHINY
+
+# Define file paths and names
+file_index=params$file_index
+
+log_path<-file_index %>%
+  filter(filetype=="log") %>%
+  select(filename, filepath) %>%
+  deframe()
+
+sched_path<-file_index %>%
+  filter(filetype=="schedule") %>%
+  select(filename, filepath) %>%
+  deframe()
+
+stones_path<-file_index %>%
+  filter(filetype=="stones") %>%
+  select(filename, filepath) %>%
+  deframe()
+
+tree_path <- file_index %>%
+  filter(filetype=="tree") %>%
+  pull(filepath)
+
+traits_path<-file_index %>%
+  filter(filename == read_header(log_path)[[1]] %>%
+           filter(Options=="Data File Name") %>%
+           pull(2)) %>%
+  pull(filepath)
+
+# Define EXTRA burnin (proportion of chain to remove as burnin. Default is 0 (keep entire chain))
+if(!is.numeric(params$user_burnin)){
+  burnin=params$user_burnin
+} else{burnin=0}
+
+
+# Define how many (random) iterations to keep for plotting (reduces load, default = 10,000)
+if(!is.numeric(params$downsample)){
+  samples_max=params$downsample
+} else{samples_max=10000}
+
+
+# Define length of run names (abbrevaitions needed for improved visualization)
+if(!is.numeric(params$abbrnames)){
+  abbrev_length=params$abbrnames
+} else{abbrev_length=20}
+```
+
+```{r localfilepaths, include=FALSE, eval=eval_local}
+### USE THIS BLOCK IF RUNNING LOCALY
+
+setwd("~/Documents/git_projects/bayestrace/bayestrace_shiny/BayesTrace/")
+
+examples_path=c("./examples/Artiodactyl_reduction/")
+
+# Define file paths and names
+
+log_path<-list.files(path=examples_path, pattern=".Log.txt", full.names = T)
+names(log_path)<-basename(log_path)
+
+sched_path<-list.files(path=examples_path, pattern=".Schedule.txt", full.names = T)
+names(sched_path)<-basename(sched_path)
+
+stones_path<-list.files(pattern=".Stones.txt", full.names = T)
+names(stones_path)<-basename(stones_path)
+
+tree_path<-list.files(path=examples_path, pattern=".tre\\w+$", full.names = T)
+
+traits_path <- list.files(examples_path, full.names=T,
+                      pattern=read_header(log_path)[[1]] %>%
+                        filter(Options=="Data File Name") %>%
+                        pull(2))
+
+# custom settings
+
+# Define EXTRA burnin (proportion of chain to remove as burnin. Default is 0 (keep entire chain))
+burnin=0
+# Define how many (random) iterations to keep for plotting (reduces load, default = 10,000)
+samples_max=10000
+
+
+# Define length of run names (abbrevaitions needed for improved visualization)
+abbrev_length=20
+```
+
+
 
 Data input {data-orientation=columns, data-icon="fa-home"}
 =====================================  
 
 ```{r message=FALSE, warning=FALSE}
 # load BayesTraits log file
-bt<-read_bt_log(dir_path)
+bt<-read_bt_log(x = log_path, abbrev_length = abbrev_length)
 
 # load input tree
-tre<-read.nexus(file = paste0(dir_path,"/",
-                              bt$header %>%
-                                filter(Options=="Tree File Name") %>%
-                                pull(2))
-                )
+tre<-read.nexus(file=tree_path)
 
 ## if multiPhylo, get majority rule consensus tree
 if(class(tre)=="multiPhylo"){
@@ -105,39 +206,38 @@ run_mode<-case_when(
 # load traits file
 
 if(run_mode=="MultiState") {
-  dat<-read_tsv(file = paste0(dir_path,"/",bt$header %>%
-                                filter(Options=="Data File Name") %>%
-                                pull(2)),
+  dat<-read_tsv(file = traits_path,
               col_names = c("Species","Trait")
               )
 }
 if(run_mode=="Discrete") {
-  dat<-read_tsv(file = paste0(dir_path,"/",bt$header %>%
-                                filter(Options=="Data File Name") %>%
-                                pull(2)),
+  dat<-read_tsv(file = traits_path,
               col_names = c("Species","Trait1","Trait2")
               ) %>%
     mutate(Trait=paste(Trait1, Trait2, sep=","))
 }
  
 # load schedule files
-acceptance_rate<-read_bt_schedule(dir_path)
+acceptance_rate<-read_bt_schedule(x = sched_path, abbrev_length = abbrev_length)
 
 # load stones files
-if(list.files(dir_path, pattern = "Stones.txt") %>%
-   length() > 0){
-  stones<-read_bt_stones(dir_path)
+if(length(stones_path)>0){
+  stones<-read_bt_stones(x=stones_path, abbrev_length = abbrev_length)
 }
 ```
 
 ```{r}
 # remove burnin, downsample and abbreviate runs
 bt$chain_clean<-bt$chain %>%
-  slice_tail(prop = burnin) %>%
+  group_by(`Run ID`) %>%
+  slice_tail(prop = 1-burnin) %>%
+  ungroup() %>%
   filter(row_number() %in% floor(seq(1, n(), length.out=samples_max)))
 
 acceptance_rate$schedule<-acceptance_rate$schedule  %>%
-  slice_tail(prop = burnin) %>%
+  group_by(`Run ID`) %>%
+  slice_tail(prop = 1-burnin) %>%
+  ungroup() %>%
   filter(row_number() %in% floor(seq(1, n(), length.out=samples_max))) 
 
 ```
@@ -428,105 +528,73 @@ if(comparison_mode) {
 
 ### Transition Rates Network
 
-```{r fig.cap='Mean transition rates'}
-
+```{r}
 # calculate mean transition rates based on all concatenated chains if the runs are the same, if not, then transitions are shown for each chain separately
 
 if(!comparison_mode){
   
-  mean_transition_rates<-bt$chain_clean %>%
-    select(starts_with("q")) %>%
-    summarise_all(mean) %>%
-    pivot_longer(everything(),names_to="parameter", values_to = "rate") %>%
-    mutate(from=str_sub(parameter, 2,2), to=str_sub(parameter, 3,3)) %>%
-    arrange(from) %>%
+ transition_dat<-bt$chain_clean %>%
+  select(starts_with("q")) %>%
+  summarise_all(mean) %>%
+  pivot_longer(everything(),names_to="parameter", values_to = "rate") %>%
+  mutate(from=str_sub(parameter, 2,2), to=str_sub(parameter, 3,3)) %>%
+  arrange(from)
+
+transition_nodes<-tibble(
+  id= unique(transition_dat$from, transition_dat$to),
+  label=id,
+  group=id,
+  color=traits_colors[id]
+)
+
+transition_edges<-transition_dat %>%
   select(from, to, rate) %>%
-  pivot_wider(names_from = to, values_from = rate) %>%
-  select(from, .$from) %>%
-  column_to_rownames("from")
-  
-  # plot
-  
-  qgraph(mean_transition_rates,
-       
-       # nodes:
-         shape="rectangle",
-         vsize=10,
-         node.height=1,
-         label.cex=3,
-         label.scale = TRUE,
-         label.color=traits_colors[rownames(mean_transition_rates)],
-       
-       # edges:
-         edge.labels=T,
-         edge.label.cex=2,
-         edge.label.bg="grey90",
-         #minimum=0.03, # threshold for edges to include
-         #edge.width=1.5,
-         posCol="black",
-         fade=T,
-       
-       # themes and layout:
-         # theme="TeamFortress",
-         layout="circular",
-         normalize=TRUE,
-         directed=TRUE)
+  mutate(arrows="to",
+         label=as.character(round(rate,3)),
+         width=scales::rescale(rate, to = c(1, 5)))
+
+visNetwork::visNetwork(transition_nodes, transition_edges) %>%
+  visPhysics(solver = "forceAtlas2Based", 
+             forceAtlas2Based = list(gravitationalConstant = -200)) %>%
+  visInteraction(navigationButtons = TRUE)
+
 
 } else {
   
-  mean_transition_rates<-bt$chain_clean %>%
+  transition_dat<-bt$chain_clean %>%
     group_by(`Run ID`) %>%
     select(starts_with("q")) %>%
     summarise_all(mean) %>%
     pivot_longer(-`Run ID`,names_to="parameter", values_to = "rate") %>%
     mutate(from=str_sub(parameter, 2,2), to=str_sub(parameter, 3,3)) %>%
-    arrange(from) %>%
-    select(-parameter) %>%
-    group_split(`Run ID`,.keep = F) %>%
-    setNames(sort(unique(bt$chain_clean$`Run ID`))) %>%
-    as.list()
+    arrange(from) #%>%
+    #select(-parameter) %>%
+    #group_split(`Run ID`,.keep = F) %>%
+    #setNames(sort(unique(bt$chain_clean$`Run ID`))) %>%
+    #as.list()
 
-  for(i in 1:length(mean_transition_rates)){
-    mean_transition_rates[[i]]<-mean_transition_rates[[i]] %>%
-      pivot_wider(names_from = to, values_from = rate) %>%
-  select(from, .$from) %>%
-  column_to_rownames("from")
-  }  
-  
-  # plot
-  par(mfrow=c(1,length(mean_transition_rates)))
-for(i in 1:length(mean_transition_rates)){
-  
-  qgraph(mean_transition_rates[[i]],
-       # title:
-         title=names(mean_transition_rates)[i],
-         
-       # nodes:
-         shape="rectangle",
-         vsize=10,
-         node.height=1,
-         label.cex=3,
-         label.scale = TRUE,
-         label.color=traits_colors[rownames(mean_transition_rates[[i]])],
-       
-       # edges:
-         edge.labels=T,
-         edge.label.cex=2,
-         edge.label.bg="grey90",
-         #minimum=0.03, # threshold for edges to include
-         #edge.width=1.5,
-         posCol="black",
-         fade=T,
-       
-       # themes and layout:
-         # theme="TeamFortress",
-         layout="circular",
-         normalize=TRUE,
-         directed=TRUE)
+  transition_nodes<-tibble(
+  id= unique(paste0(transition_dat$`Run ID`, transition_dat$from), paste0(transition_dat$`Run ID`,transition_dat$to)),
+  label=unique(transition_dat$from, transition_dat$to),
+  group=transition_dat$`Run ID`,
+  color=traits_colors[label]
+)
+
+transition_edges<-transition_dat %>%
+  select(`Run ID`, from, to, rate) %>%
+  mutate(arrows="to",
+         from=paste0(`Run ID`,from),
+         to=paste0(`Run ID`, to),
+         label=as.character(round(rate,3)),
+         width=scales::rescale(rate, to = c(1, 5)))
+
+visNetwork::visNetwork(transition_nodes, transition_edges) %>%
+  visPhysics(solver = "forceAtlas2Based", 
+             forceAtlas2Based = list(gravitationalConstant = -100)) %>%
+  visInteraction(navigationButtons = TRUE) %>%
+  visOptions(selectedBy = list(variable="group", multiple=T))
 }
   
-  
-}
 
 ```
 
@@ -707,9 +775,10 @@ transition_rates %>%
 if(rj){
   model_ranking<-bt$chain_clean %>%
     mutate(`Model string`=str_remove(`Model string`, "'")) %>%
-  count(`Model string`, name = "N sampled") %>%
-  mutate(`% sampled`=`N sampled`/sum(`N sampled`)*100) %>%
-  arrange(desc(`N sampled`)) %>%
+    count(`Model string`, name = "N sampled") %>%
+    mutate(`% sampled`=`N sampled`/sum(`N sampled`)*100) %>%
+    arrange(desc(`N sampled`)) %>%
+    mutate(ranking=row_number()) %>%
   mutate_if(is.numeric, round, 2) 
 
 # plot table
@@ -729,7 +798,8 @@ if(rj){
   count(`Model string`, name = "N sampled") %>%
   mutate(`% sampled`=`N sampled`/sum(`N sampled`)*100) %>%
   arrange(desc(`N sampled`)) %>%
-  mutate(`Model string`=factor(`Model string`, levels = unique(`Model string`))) %>%
+  mutate(`Model string` = str_remove(`Model string`, "'"),
+    `Model string`=factor(`Model string`, levels = unique(`Model string`))) %>%
   ggplot(aes(x=`Model string`, y=`% sampled`)) +
   geom_bar(stat="identity")
   
@@ -746,44 +816,33 @@ Row
 
 ### % Non-zero transitions
 
-```{r fig.cap="edge numbers show % of the posterior the transition was non-zero"}
+```{r}
 
 if(rj){
   ### Plot transition network for 0% non-zero 
 
-zero_matrix<-transition_rates %>%
-  select(`% Non-Zero`, transitions) %>%
-  mutate(transitions=str_remove(transitions, "q*")) %>%
-  separate(transitions, into=c("from","to"), sep = 1, remove = TRUE) %>%
-  mutate(`% Non-Zero`=round(`% Non-Zero`,1)) %>%
-  pivot_wider(names_from = to, values_from = `% Non-Zero`) %>%
-  select(from, .$from) %>%
-  column_to_rownames("from")
+  transition_dat<-transition_rates %>%
+  mutate(from=str_sub(transitions, 2,2),
+         to=str_sub(transitions, 3,3)) 
 
-# plot
-qgraph(zero_matrix,
-       #nodes:
-         shape="rectangle",
-         vsize=10,
-         node.height=1,
-         label.cex=3,
-         label.scale = TRUE,
-         label.color=traits_colors[rownames(zero_matrix)],
-       
-       # edges:
-         edge.labels=T,
-         edge.label.cex=2,
-         edge.label.bg="grey90",
-         #minimum=0.03, # threshold for edges to include
-         #edge.width=1.5,
-         posCol="black",
-         fade=T,
-       
-       # themes and layout:
-         # theme="TeamFortress",
-         layout="circular",
-         normalize=TRUE,
-         directed=TRUE)
+transition_nodes<-tibble(
+  id= unique(transition_dat$from, transition_dat$to),
+  label=id,
+  group=id,
+  color=traits_colors[id]
+)
+
+transition_edges<-transition_dat %>%
+  select(from, to, `% Non-Zero`) %>%
+  mutate(arrows="to",
+         label=as.character(round(`% Non-Zero`,2)),
+         width=scales::rescale(`% Non-Zero`, to = c(1, 5)))
+
+visNetwork::visNetwork(transition_nodes, transition_edges) %>%
+  visPhysics(solver = "forceAtlas2Based", 
+             forceAtlas2Based = list(gravitationalConstant = -200)) %>%
+  visInteraction(navigationButtons = TRUE)
+
 } else {
   cat("No Reverse Jump used")
 }
@@ -792,61 +851,50 @@ qgraph(zero_matrix,
 
 ### Three most frequently sampled model
 
-```{r fig.cap="edge numbers show transition rates"}
+```{r}
 if(rj){
 
-transitions<-na.omit(str_extract(colnames(bt$chain_clean), "q\\w+"))
-
-rj_models<-str_replace_all(model_ranking$`Model string`, "Z", "-1")
-
-rj_models<-enframe(rj_models, name = "rank", value = "cat") %>%
-  separate(cat,sep = " ",into =transitions ) %>%
-  mutate_at(vars(starts_with("q")), as.numeric) %>%
-  mutate_at(vars(starts_with("q")), ~.+1)
+  transition_dat<-bt$chain_clean %>%
+    select(`Model string`,starts_with("q")) %>%
+    group_by(`Model string`) %>%
+    summarise_all(mean) %>%
+    pivot_longer(-`Model string`, names_to="parameter", values_to = "rate") %>%
+    mutate(from=str_sub(parameter, 2,2),
+           to=str_sub(parameter, 3,3),
+           `Model string`=str_remove(`Model string`, "'")) %>%
+    left_join(model_ranking) %>%
+    # add transition category
+    group_by(`Model string`) %>%
+    mutate(rate_category=str_split(`Model string`[[1]], " ")[[1]][row_number()]) %>%
+    ungroup() %>%
+    ## arrange by ranking and keep only top 3
+    arrange(ranking, from) %>%
+    filter(ranking %in% c(1:3))
   
-# make list of model matrices
-rj_model_matrix<-list()
+  # make nodes table
+  transition_nodes<-tibble(
+  id= unique(paste0(transition_dat$`Model string`, transition_dat$from), paste0(transition_dat$`Model string`,transition_dat$to)),
+  label=unique(transition_dat$from, transition_dat$to),
+  group=transition_dat$`Model string`,
+  color=traits_colors[label]
+)
 
-for(i in 1:nrow(rj_models)){
-  rj_model_matrix[[i]]<-rj_models %>%
-    filter(rank==i) %>%
-    pivot_longer(-rank,names_to="parameter", values_to = "rate") %>%
-    mutate(from=str_sub(parameter, 2,2), to=str_sub(parameter, 3,3)) %>%
-    arrange(from) %>%
-  select(from, to, rate) %>%
-  pivot_wider(names_from = to, values_from = rate) %>%
-  select(from, .$from) %>%
-  column_to_rownames("from")
-}
+transition_edges<-transition_dat %>%
+  select(`Model string`, from, to, rate, rate_category) %>%
+  mutate(arrows="to",
+         from=paste0(`Model string`,from),
+         to=paste0(`Model string`, to),
+         label=as.character(round(rate,3)),
+         color=rate_category,
+         width=scales::rescale(rate, to = c(1, 5))) %>%
+  filter(rate!=0)
 
-# plot first 3 models
-par(mfrow=c(1,3))
-for(i in 1:3) {
-  qgraph(rj_model_matrix[[i]],
-       #nodes:
-         shape="rectangle",
-         vsize=10,
-         node.height=1,
-         label.cex=3,
-         label.scale = TRUE,
-         label.color=traits_colors[rownames(rj_model_matrix[[i]])],
-       
-       # edges:
-         edge.labels=T,
-         edge.label.cex=5,
-         edge.label.bg="grey90",
-         #minimum=0.03, # threshold for edges to include
-         #edge.width=1.5,
-         posCol="black",
-         fade=F,
-       
-         # themes and layout:
-         # theme="TeamFortress",
-         layout="circular",
-         normalize=TRUE,
-         directed=TRUE)
-}
-
+visNetwork::visNetwork(transition_nodes, transition_edges) %>%
+  visPhysics(solver = "forceAtlas2Based", 
+             forceAtlas2Based = list(gravitationalConstant = -100)) %>%
+  visInteraction(navigationButtons = TRUE) %>%
+  visOptions(selectedBy = list(variable="group", multiple=T))
+  
 } else {
   cat("No Reverse Jump used")
 }
