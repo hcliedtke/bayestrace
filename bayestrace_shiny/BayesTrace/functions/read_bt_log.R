@@ -42,7 +42,7 @@ read_bt_log<-function(x, abbrev_length=20){
       map_chr(~ .x %>% str_replace_all("; +|;\t+| +;|\t;", ";")) %>% # remove leading and trailing spaces
       paste0(., "\n",collapse = "\n") %>%
       read_delim(delim=";",col_names = col_names) %>%
-      discard(~all(is.na(.)))
+      purrr::discard(~all(is.na(.)))
   }
   
   for(i in 1:length(log_paths)){
@@ -118,7 +118,7 @@ read_bt_log<-function(x, abbrev_length=20){
                               skip=grep(pattern = "Iteration\\tLh", read_lines(log_paths[i], n_max=Inf))-1,
                               col_names = TRUE,
                               na=c("",NA, "--")) %>%
-      discard(~all(is.na(.)))
+      purrr::discard(~all(is.na(.)))
     
   }
 

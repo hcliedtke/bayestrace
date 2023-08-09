@@ -27,14 +27,14 @@ library(scales)
 library(tidyverse)
 library(plotly)
 library(reactable)
-library(qgraph)
+#library(qgraph)
 library(coda)
 library(ape)
-library(RColorBrewer)
+#library(RColorBrewer)
 library(visNetwork)
 
 # establish if running via shiny or locally
-eval_shiny<-ifelse(is.logical(params$shinyfy), TRUE, FALSE) 
+eval_shiny<-params$shinyfy==TRUE
 eval_local<-!eval_shiny
 
 ```
@@ -136,7 +136,7 @@ if(!is.numeric(params$downsample)){
 } else{samples_max=10000}
 
 
-# Define length of run names (abbrevaitions needed for improved visualization)
+# Define length of run names (abbreviations needed for improved visualization)
 if(!is.numeric(params$abbrnames)){
   abbrev_length=params$abbrnames
 } else{abbrev_length=20}
@@ -147,7 +147,7 @@ if(!is.numeric(params$abbrnames)){
 
 setwd("~/Documents/git_projects/bayestrace/bayestrace_shiny/BayesTrace/")
 
-examples_path=c("./examples/Artiodactyl_reduction/")
+examples_path=c("./examples/Artiodactyl_multistates_anc_states//")
 
 # Define file paths and names
 

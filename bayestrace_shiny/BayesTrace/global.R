@@ -6,13 +6,14 @@ library(tidyverse)
 library(plotly)
 library(reactable)
 library(shinyalert)
-#flexdashboard libs
-library(knitr)
-library(flexdashboard)
-library(qgraph)
-library(coda)
-library(ape)
-library(RColorBrewer)
+##flexdashboard libs
+#library(knitr)
+#library(flexdashboard)
+#library(qgraph)
+#library(coda)
+#library(ape)
+#library(RColorBrewer)
+#library(visNetwork)
 
 # ============================================
 # Set themes  
@@ -50,7 +51,7 @@ read_header<-function(file_path){
   #log_files<-basename(log_paths)
   
   for(i in 1:length(log_paths)){
-    last_line=grep(pattern = "^\\s+|^\\t+", read_lines(log_paths[i], n_max=100))[1]-2 # finds first line with a space or tab as the first character, then backtraces 2.
+    last_line=grep(pattern = "^\\s+|^\\t+", read_lines(log_paths[i], n_max=1000))[1]-2 # finds first line with a space or tab as the first character, then backtraces 2.
     
     header_list[[i]]<-read.delim(log_paths[[i]],header = T,nrows = last_line-1, sep=":") %>%
       mutate(X=str_remove_all(X, " "))
@@ -129,7 +130,7 @@ read_chain<-function(file_index){
                        skip=grep(pattern = "Iteration\\tLh", read_lines(log_paths, n_max=Inf))-1,
                        col_names = TRUE,
                        na=c("",NA, "--")) %>%
-      discard(~all(is.na(.))) %>%
+      purrr::discard(~all(is.na(.))) %>%
       mutate(`Run ID`=log_names)
   } else{
     # empty list
@@ -141,7 +142,7 @@ read_chain<-function(file_index){
                                           read_lines(log_paths[i], n_max=Inf))-1,
                                 col_names = TRUE,
                                 na=c("",NA, "--")) %>%
-        discard(~all(is.na(.)))
+        purrr::discard(~all(is.na(.)))
     }
     names(chain_list)<-log_names
     chain_df<-bind_rows(chain_list, .id="Run ID") # appends chains
