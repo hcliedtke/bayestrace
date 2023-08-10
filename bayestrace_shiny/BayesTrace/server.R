@@ -35,7 +35,7 @@ server <- function(input,output,session){
           str_detect(filename,"Log.txt") ~ "log",
           str_detect(filename,"Schedule.txt") ~ "schedule",
           str_detect(filename,"Stones.txt") ~ "stones",
-          str_detect(filename,"\\.tre\\w+$") ~ "tree",
+          str_detect(filename,"\\.tre\\w+$|\\.nex$|\\.nexus$") ~ "tree",
           TRUE ~ "unknown"),
         filepath=input$bt_files$datapath
         )
@@ -73,16 +73,39 @@ server <- function(input,output,session){
     
     output$run_mode <- shinydashboard::renderInfoBox({
       shinydashboard::infoBox(value = run_mode,
-                               title = "Mode:",
-                               icon = icon("not-equal"),
-                               color="maroon", fill=TRUE)
+                               title = "Model:",
+                               icon = icon("cogs"),
+                               color="olive", fill=TRUE)
     })
     
+    #### INFO BOX: comparison mode
+    
+    if(length(header_list)==1) {
+      comparison_mode<-"Single run"
+    } else {
+      header_df<-header_list %>%
+        reduce(full_join, by="Options") 
+      
+      comparison_mode<-header_df  %>%
+        filter(if_any(2:ncol(.), ~ .x != header_df[,2])) %>%
+        filter(!Options %in% c("Log File Name","Seed", "Schedule File", "Iterations", "Cores")) %>%
+        nrow()>0
+      
+      comparison_mode<-ifelse(comparison_mode, "Multi-run, different settings", "Multi-run, same settings")
+    }
+    
+    
+    output$comparison_mode <- shinydashboard::renderInfoBox({
+      shinydashboard::infoBox(value = comparison_mode,
+                              title = "Mode:",
+                              icon = icon("not-equal"),
+                              color="maroon", fill=TRUE)
+    })
     
     #### INFO BOX: STONES
     
     output$stones <- shinydashboard::renderInfoBox({
-          shinydashboard::infoBox(value = any(file_index()$filetype=="stones"),
+          shinydashboard::infoBox(value = length(which((file_index()$filetype=="stones"))),
                                    title = "Stones:",
                                    icon = icon("link"),
                                    color="orange", fill=TRUE)
@@ -123,6 +146,7 @@ server <- function(input,output,session){
        gg_violin<-tbl_mcmc %>%
          ggplot(aes(x=`Run ID`, y=Lh, color=`Run ID`, fill=`Run ID`)) +
          geom_violin(alpha=0.75) +
+         labs(x="") +
          scale_colour_manual(values=unname(run_colors)) +
          scale_fill_manual(values=unname(run_colors)) +
          theme(legend.position = "none",
@@ -161,7 +185,7 @@ server <- function(input,output,session){
   # render Rmd report
   
   output$report <- downloadHandler(
-    filename = "report.html",
+    filename = "BayesTrace_report.html",
     
     content = function(f) {
       

@@ -27,10 +27,8 @@ library(scales)
 library(tidyverse)
 library(plotly)
 library(reactable)
-#library(qgraph)
 library(coda)
 library(ape)
-#library(RColorBrewer)
 library(visNetwork)
 
 # establish if running via shiny or locally
@@ -51,9 +49,7 @@ read_header<-function(file_path){
   
   ### read log header
   header_list<-list()
-  #log_paths<-list.files(path=dir_path, pattern="Log.txt", full.names = T)
   log_paths<-file_path
-  #log_files<-basename(log_paths)
   
   for(i in 1:length(log_paths)){
     last_line=grep(pattern = "^\\s+|^\\t+", read_lines(log_paths[i], n_max=100))[1]-2 # finds first line with a space or tab as the first character, then backtraces 2.
@@ -125,9 +121,8 @@ traits_path<-file_index %>%
   pull(filepath)
 
 # Define EXTRA burnin (proportion of chain to remove as burnin. Default is 0 (keep entire chain))
-if(!is.numeric(params$user_burnin)){
-  burnin=params$user_burnin
-} else{burnin=0}
+user_burnin=params$user_burnin
+burnin<-ifelse(is.numeric(user_burnin), user_burnin, 0)
 
 
 # Define how many (random) iterations to keep for plotting (reduces load, default = 10,000)
@@ -145,9 +140,9 @@ if(!is.numeric(params$abbrnames)){
 ```{r localfilepaths, include=FALSE, eval=eval_local}
 ### USE THIS BLOCK IF RUNNING LOCALY
 
-setwd("~/Documents/git_projects/bayestrace/bayestrace_shiny/BayesTrace/")
+#setwd("~/Documents/git_projects/bayestrace/bayestrace_shiny/BayesTrace/")
 
-examples_path=c("./examples/Artiodactyl_multistates_anc_states//")
+#examples_path=c("./examples/Artiodactyl_multistates_anc_states/")
 
 # Define file paths and names
 
@@ -157,10 +152,10 @@ names(log_path)<-basename(log_path)
 sched_path<-list.files(path=examples_path, pattern=".Schedule.txt", full.names = T)
 names(sched_path)<-basename(sched_path)
 
-stones_path<-list.files(pattern=".Stones.txt", full.names = T)
+stones_path<-list.files(path=examples_path, pattern=".Stones.txt", full.names = T)
 names(stones_path)<-basename(stones_path)
 
-tree_path<-list.files(path=examples_path, pattern=".tre\\w+$", full.names = T)
+tree_path<-list.files(path=examples_path, pattern=".tre\\w+$|.nex$|.nexus$", full.names = T)
 
 traits_path <- list.files(examples_path, full.names=T,
                       pattern=read_header(log_path)[[1]] %>%
@@ -253,7 +248,7 @@ names(traits_colors)<-unique(dat$Trait)
 # define "mode". I.e. are multiple runs the same, or are they run with different settings 
 comparison_mode<-bt$header %>%
   filter(if_any(2:ncol(.), ~ .x != bt$header[,2])) %>%
-  filter(!Options %in% c("Log File Name","Seed", "Schedule File")) %>%
+  filter(!Options %in% c("Log File Name","Seed", "Schedule File","Iterations","Cores")) %>%
   nrow()>0
 ```
 
@@ -496,17 +491,21 @@ Row
 
 if(comparison_mode) {
   bt$chain_clean %>%
-  group_by(`Run ID`) %>%
-  select(starts_with("Root")) %>%
-  summarise_all(mean) %>%
-  pivot_longer(-`Run ID`,names_to="State",values_to="prob") %>%
-  mutate(State=str_remove_all(State, ".*P\\(|\\)")) %>%
-  ggplot(aes(x=`Run ID`,y=prob, fill=State)) +
-  geom_bar(stat="identity") +
-  coord_polar("y") +
-  scale_fill_manual(values = traits_colors) +
-  theme_void() + 
-  theme(legend.position = "bottom")
+    group_by(`Run ID`) %>%
+    select(starts_with("Root")) %>%
+    summarise_all(mean) %>%
+    pivot_longer(-`Run ID`,names_to="State",values_to="prob") %>%
+    mutate(State=str_remove_all(State, ".*P\\(|\\)")) %>%
+    ggplot(aes(y=`Run ID`,x=prob, fill=State)) +
+    geom_bar(stat="identity") +
+    coord_polar() +
+    scale_fill_manual(values = traits_colors) +
+    theme_void() + 
+    theme(legend.position = "bottom") +
+      annotate('text', x = 0, y = 1:(bt$chain_clean$`Run ID` %>% unique() %>% length()),
+               label = bt$chain_clean$`Run ID` %>% unique())
+
+    
 } else {
   bt$chain_clean %>%
      select(starts_with("Root")) %>%
@@ -541,10 +540,12 @@ if(!comparison_mode){
   arrange(from)
 
 transition_nodes<-tibble(
-  id= unique(transition_dat$from, transition_dat$to),
-  label=id,
-  group=id,
-  color=traits_colors[id]
+  id = unique(c(transition_dat$from, transition_dat$to)),
+  label = id,
+  group = id,
+  color = traits_colors[id],
+  shape="circle",
+  font.color="white"
 )
 
 transition_edges<-transition_dat %>%
@@ -556,7 +557,8 @@ transition_edges<-transition_dat %>%
 visNetwork::visNetwork(transition_nodes, transition_edges) %>%
   visPhysics(solver = "forceAtlas2Based", 
              forceAtlas2Based = list(gravitationalConstant = -200)) %>%
-  visInteraction(navigationButtons = TRUE)
+  visInteraction(navigationButtons = TRUE) %>%
+  visOptions(selectedBy = list(variable="id", multiple=T))
 
 
 } else {
@@ -567,18 +569,19 @@ visNetwork::visNetwork(transition_nodes, transition_edges) %>%
     summarise_all(mean) %>%
     pivot_longer(-`Run ID`,names_to="parameter", values_to = "rate") %>%
     mutate(from=str_sub(parameter, 2,2), to=str_sub(parameter, 3,3)) %>%
-    arrange(from) #%>%
-    #select(-parameter) %>%
-    #group_split(`Run ID`,.keep = F) %>%
-    #setNames(sort(unique(bt$chain_clean$`Run ID`))) %>%
-    #as.list()
+    arrange(from) 
 
-  transition_nodes<-tibble(
-  id= unique(paste0(transition_dat$`Run ID`, transition_dat$from), paste0(transition_dat$`Run ID`,transition_dat$to)),
-  label=unique(transition_dat$from, transition_dat$to),
-  group=transition_dat$`Run ID`,
-  color=traits_colors[label]
-)
+  transition_nodes<-transition_dat %>%
+    select(`Run ID`, from, to) %>%
+    pivot_longer(-`Run ID`, values_to="label") %>%
+    select(-name) %>%
+    distinct_all() %>%
+    rename(group=`Run ID`) %>%
+    mutate(id=paste0(group, label),
+           color=traits_colors[label],
+           shape="circle",
+           font.color="white")
+    
 
 transition_edges<-transition_dat %>%
   select(`Run ID`, from, to, rate) %>%
@@ -594,7 +597,7 @@ visNetwork::visNetwork(transition_nodes, transition_edges) %>%
   visInteraction(navigationButtons = TRUE) %>%
   visOptions(selectedBy = list(variable="group", multiple=T))
 }
-  
+
 
 ```
 
@@ -605,21 +608,22 @@ Row
 
 ### Transition Rates Densities
 
-```{r fig.cap='Density distributions of rate transition estimates. Line show mean rates.'}
+```{r}
 
 if(comparison_mode) {
   rate_density_gg<-bt$chain_clean %>%
-  group_by(`Run ID`) %>%
-  select(starts_with("q")) %>%
-  pivot_longer(-`Run ID`, names_to = "transition", values_to = "rate") %>%
-  ggplot(aes(x=rate)) +
-  geom_density(alpha=0.75, fill="grey90",color=NA) +
-  geom_vline(data=. %>%
+    group_by(`Run ID`) %>%
+    select(starts_with("q")) %>%
+    pivot_longer(-`Run ID`, names_to = "transition", values_to = "rate") %>%
+    ggplot(aes(x=rate, fill=`Run ID`)) +
+    geom_density(alpha=0.25, color=NA) +
+    geom_vline(data=. %>%
                group_by(`Run ID`, transition) %>%
-    summarise(rate=mean(rate)),
-    aes(xintercept=rate, linetype="dashed")) +
-  facet_grid(`Run ID`~transition, scales = "free") +
-  theme(legend.position = "none")
+               summarise(rate=mean(rate)),
+             aes(xintercept=rate, linetype="dashed")) +
+    scale_fill_manual(values=unname(run_colors)) +
+    facet_wrap(~transition, scales = "free") +
+    theme(legend.position = "none")
   
   #plotlyfy
   ggplotly(rate_density_gg)
@@ -629,7 +633,7 @@ if(comparison_mode) {
   select(starts_with("q")) %>%
   pivot_longer(everything(), names_to = "transition", values_to = "rate") %>%
   ggplot(aes(x=rate)) +
-  geom_density(alpha=0.75, fill="grey90",color=NA) +
+  geom_density(alpha=0.75, fill="grey60",color=NA) +
   geom_vline(data=. %>%
                group_by(transition) %>%
     summarise(rate=mean(rate)),
@@ -649,11 +653,17 @@ Node Reconstructions {data-orientation=columns, data-icon="fa-project-diagram"}
 
 
 ```{r}
+## add trait data to tree
+tre$traits<-dat %>%
+  arrange(match(Species, tre$tip.label)) %>%
+  pull(Trait)
+
+## conditionally add node states
+
 if(is.null(bt$tags)) {
   cat("No nodes were set for ancestral state reconstrucitions")
 }else{
   
-
 # make the ancestral states df
 anc_df<-bt$tags %>%
   left_join(bt$recon, by="Tag")
@@ -679,10 +689,6 @@ anc_df<-anc_df %>%
       pivot_wider(values_from = value, names_from = Prob),
     by="Node")
 
-## add trait data to tree
-tre$traits<-dat %>%
-  arrange(match(Species, tre$tip.label)) %>%
-  pull(Trait)
 }
 ```
 
@@ -709,21 +715,26 @@ Column {data-width=70%}
 
 ### Phylogeny
 
-```{r fig.width=12}
+```{r}
+
+big_tree<-length(tre$tip.label)>50
+
+plot(tre,
+     show.tip.label = !big_tree,
+     label.offset = ifelse(big_tree, 0.1, 0.5),
+     no.margin = T,
+     type=ifelse(big_tree,"fan","phylogram"),
+     edge.width = ifelse(big_tree, 0.25, 1)
+     #tip.color = traits_colors[tre$traits]
+)
+tiplabels(pch=16, col=traits_colors[as.character(tre$traits)], cex=ifelse(big_tree, 0.25, 3))
+
 if(!is.null(bt$tags)){
-  plot(tre,
-       no.margin = T,
-       tip.color = traits_colors[tre$traits],
-       cex=ifelse(length(tre$tip.label)>30,0.1,1))
   nodelabels(node = anc_df$node_num,pie = anc_df %>%
                select(unique(dat$Trait)),
              cex = 1,
              piecol=traits_colors)
-  legend("topleft", legend = names(traits_colors), pch=15, col=traits_colors, bty="n")
-} else {
-  plot(tre,
-       no.margin = T,
-       cex=ifelse(length(tre$tip.label)>30,0.2,1))
+  legend("bottomleft", legend = names(traits_colors), pch=15, col=traits_colors, bty="n")
 }
 ```
 
@@ -795,16 +806,21 @@ model_ranking %>%
 ```{r fig.width=12}
 if(rj){
   revj_ranking_gg<-bt$chain_clean %>%
-  count(`Model string`, name = "N sampled") %>%
-  mutate(`% sampled`=`N sampled`/sum(`N sampled`)*100) %>%
-  arrange(desc(`N sampled`)) %>%
-  mutate(`Model string` = str_remove(`Model string`, "'"),
-    `Model string`=factor(`Model string`, levels = unique(`Model string`))) %>%
-  ggplot(aes(x=`Model string`, y=`% sampled`)) +
-  geom_bar(stat="identity")
+    count(`Model string`, name = "N sampled") %>%
+    mutate(`% sampled`=`N sampled`/sum(`N sampled`)*100) %>%
+    arrange(desc(`N sampled`)) %>%
+    slice_head(n=10) %>%
+    mutate(`Model Ranking`=as.factor(row_number()),
+           `Model string` = str_remove(`Model string`, "'")) %>%
+    ggplot(aes(x=`Model Ranking`, y=`% sampled`,
+               text=paste0("<br>Model Ranking: ", `Model Ranking`,
+                           "<br>Model String: ", `Model string`,
+                           "<br>% Sampled: ", `% sampled`)
+               )) +
+    geom_bar(stat="identity")
   
   #plotlyfy
-  ggplotly(revj_ranking_gg)
+  ggplotly(revj_ranking_gg, tooltip = "text")
 }else {
   cat("No Reverse Jump used")
 }
@@ -824,24 +840,33 @@ if(rj){
   transition_dat<-transition_rates %>%
   mutate(from=str_sub(transitions, 2,2),
          to=str_sub(transitions, 3,3)) 
-
+  
 transition_nodes<-tibble(
-  id= unique(transition_dat$from, transition_dat$to),
+  id= unique(c(transition_dat$from, transition_dat$to)),
   label=id,
   group=id,
-  color=traits_colors[id]
+  color=traits_colors[id],
+  shape="circle",
+  font.color="white"
 )
+
+# make colour ramp
+rbPal <- colorRampPalette(c('skyblue','#301e5d'))
 
 transition_edges<-transition_dat %>%
   select(from, to, `% Non-Zero`) %>%
-  mutate(arrows="to",
+  mutate(id=row_number(),
+         arrows="to",
+         color= rbPal(nrow(.))[as.numeric(cut(`% Non-Zero`,breaks = nrow(.)))],
          label=as.character(round(`% Non-Zero`,2)),
          width=scales::rescale(`% Non-Zero`, to = c(1, 5)))
 
-visNetwork::visNetwork(transition_nodes, transition_edges) %>%
+visNetwork(transition_nodes, transition_edges) %>%
   visPhysics(solver = "forceAtlas2Based", 
-             forceAtlas2Based = list(gravitationalConstant = -200)) %>%
-  visInteraction(navigationButtons = TRUE)
+             forceAtlas2Based = list(gravitationalConstant = -100)) %>%
+  visInteraction(navigationButtons = TRUE) %>%
+  visOptions(selectedBy = list(variable="id", multiple=T))
+
 
 } else {
   cat("No Reverse Jump used")
@@ -872,28 +897,35 @@ if(rj){
     filter(ranking %in% c(1:3))
   
   # make nodes table
-  transition_nodes<-tibble(
-  id= unique(paste0(transition_dat$`Model string`, transition_dat$from), paste0(transition_dat$`Model string`,transition_dat$to)),
-  label=unique(transition_dat$from, transition_dat$to),
-  group=transition_dat$`Model string`,
-  color=traits_colors[label]
-)
+  transition_nodes<-transition_dat %>%
+    select(`Model string`, from, to, ranking) %>%
+    pivot_longer(-c(`Model string`, ranking), values_to="label") %>%
+    select(-name) %>%
+    distinct_all() %>%
+    rename(group=`Model string`,
+           "Model_Ranking" = ranking) %>%
+    mutate(id=paste0(group, label),
+           color=traits_colors[label],
+           shape="circle",
+           font.color="white")
+  
 
 transition_edges<-transition_dat %>%
   select(`Model string`, from, to, rate, rate_category) %>%
-  mutate(arrows="to",
+  filter(rate!=0) %>%
+  mutate(id=row_number(),
+         arrows="to",
          from=paste0(`Model string`,from),
          to=paste0(`Model string`, to),
          label=as.character(round(rate,3)),
          color=rate_category,
-         width=scales::rescale(rate, to = c(1, 5))) %>%
-  filter(rate!=0)
+         width=scales::rescale(rate, to = c(1, 5))) 
 
 visNetwork::visNetwork(transition_nodes, transition_edges) %>%
   visPhysics(solver = "forceAtlas2Based", 
              forceAtlas2Based = list(gravitationalConstant = -100)) %>%
   visInteraction(navigationButtons = TRUE) %>%
-  visOptions(selectedBy = list(variable="group", multiple=T))
+  visOptions(selectedBy = list(variable="Model_Ranking", multiple=T)) 
   
 } else {
   cat("No Reverse Jump used")
@@ -908,6 +940,7 @@ Model Comparison - LogBF {data-icon="fa-not-equal"}
 ```{r}
 # check if stones file exists
 st<-exists("stones")
+multi_stones<- length(stones_path)>1
 ```
 
 
@@ -942,33 +975,32 @@ if(st){
 ### Log Bayes Factor {data-height=3%}
 
 ```{r}
-if(st){
+if(st & multi_stones){
   
 ## calculate log Bayes Factor (x1=complex model, x2=simple model)
 LogBF<-function(mod1,mod2){2*(mod1-mod2)}
 
-### rank models in decreasing complexity
-complexity_rank<-bt$chain %>% 
-  select(-c(Iteration, Lh, `Tree No`)) %>%
-  group_by(`Run ID`) %>%
-  slice_head(n=1) %>%
-  pivot_longer(-`Run ID`) %>%
-  drop_na() %>%
-  count() %>%
-  arrange(desc(n)) %>%
-  pull(`Run ID`)
+### rank models in decreasing complexity (based on number of columns in the chains)
+
+model_complexity<- bt$chain_clean %>%
+  split(f = as.factor(.$`Run ID`)) %>%
+  lapply(function(x) x[,colSums(is.na(x))<nrow(x)]) %>%
+  lapply(function(x) x[,colSums(x != 0) > 0]) %>%
+  sapply(.,ncol)
+
 
 ### select most complex and next most complex model
-
-mod1=complexity_rank[1]
-mod2=complexity_rank[2]
+mod1=names(which.max(model_complexity))[1]
+mod2=names(which.min(model_complexity))[1]
 
 ### calculate logBF
 log_bf<-LogBF(mod1=stones$`marginal likelihood` %>%
-                select(all_of(mod1)) %>% pull(),
+                select(all_of(mod1)) %>%
+                pull(),
               mod2=stones$`marginal likelihood` %>%
                 select(all_of(mod2)) %>%
-                pull()) %>%
+                pull()
+              ) %>%
   round(2)
 
 # return Bayes Factor
@@ -981,7 +1013,7 @@ cat(paste0("Log Bayes Factor: ",LogBF(mod1=stones$`marginal likelihood` %>%
             "\nThe complex model (",mod1, ") is a ",ifelse(log_bf>0,"better","worse")," fit.")
             )
 } else {
-  cat("No stepping stones sampler set")
+  cat("This needs at least two stones samplers")
 }
 ```
 

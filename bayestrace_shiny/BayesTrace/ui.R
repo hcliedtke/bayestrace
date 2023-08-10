@@ -14,19 +14,20 @@ ui <- fluidPage(style='padding:100px;',
                 fluidRow(style='padding:30px;margin:10px;background-color:#f7f6f2;border-radius:10px',
                          div(h3("Run Characteristics")),
                          #tableOutput(("fileindex")), ## for troubleshooting only
-                         shinydashboard::infoBoxOutput(outputId = "value_n_logs",width=4),
-                         shinydashboard::infoBoxOutput(outputId = "run_mode", width = 4),
-                         shinydashboard::infoBoxOutput(outputId = "stones", width = 4)
+                         shinydashboard::infoBoxOutput(outputId = "value_n_logs",width = 3),
+                         shinydashboard::infoBoxOutput(outputId = "run_mode", width = 3),
+                         shinydashboard::infoBoxOutput(outputId = "comparison_mode", width = 3),
+                         shinydashboard::infoBoxOutput(outputId = "stones", width = 3)
                 ),
                 fluidRow(style='padding:30px;margin:10px;background-color:#f7f6f2;border-radius:10px',
-                         div(h3("MCMC trace")),
+                         div(h3("MCMC traces")),
                          column(width=8, plotlyOutput("chainPlot")),
                          column(width=4, plotlyOutput("violinPlot")),
                 ),
                 fluidRow(style='padding:30px;margin:10px;background-color:#f7f6f2;border-radius:10px',
                          div(h3("Generate BayesTraits report")),
                          column(width=4,
-                                div(h4("file check")),
+                                div(h4("Checking Necessary Files")),
                                 tableOutput("file_check")
                          ),
                          column(width=4,
@@ -40,7 +41,12 @@ ui <- fluidPage(style='padding:100px;',
                                 numericInput("abbrnames",
                                              "Abbreviate log file names to # characters:",
                                              20, min = 1, max = NA, step=1),
-                                textOutput("test")
+                                checkboxGroupInput("bf_compare",
+                                             "Choose runs for log likelihood test:",
+                                             choiceNames =
+                                               list("Model 1", "Model 2"),
+                                             choiceValues =
+                                               list("mod1", "mod2")),
                                 
                                 ),
                          column(width=4,

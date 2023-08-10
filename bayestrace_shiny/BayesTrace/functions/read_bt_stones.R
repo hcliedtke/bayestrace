@@ -39,7 +39,7 @@ read_bt_stones<-function(x,abbrev_length=20){
       paste0(., "\n",collapse = "\n") %>%
       read_delim(delim=";",
                  col_names = c("Parameters",stones_names_abbr[i])) %>%
-      discard(~all(is.na(.)))
+      purrr::discard(~all(is.na(.)))
     
     ## get stones iterations
     stones_list[[i]]<-read_tsv(file = stones_paths[i],
