@@ -11,6 +11,16 @@ library(ggrepel)
 library(tidyverse)
 
 
+###
+library(data.table)
+data.table:::fread(log_paths[[i]], nrows = last_line-1,sep="")
+
+gsub(x=read_lines(log_paths[[i]]), pattern="Discrete: ", replace="Discrete:-") %>%
+  read.delim(header = T,nrows = last_line-1, sep="")
+
+read.delim(log_paths[[i]],header = T,nrows = last_line-1, sep="")
+
+
 
 ### make interactive tree
 

@@ -9,3 +9,4 @@ The aim is to produce a standardized report that can be useful for interpreting 
 - [ ] Improve root state pie chart (make interactive)
 - [ ] Improve phylogeny representation (ggtree + plotly, or network3d dendrogram)
 - [ ] Add pGLS features
+- [ ] Transition Rate Densities - fix middle rows, which are always a little squashed with plotly
