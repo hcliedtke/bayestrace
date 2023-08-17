@@ -2,7 +2,13 @@ setwd("./BayesTrace/")
 examples_path=c("~/Documents/amphibian_diversity_project/2021/code_availability/Liedtke_et_al_Nat_Comm_2022/BayesTraits/anura/")
 examples_path=c("./examples/Bird_covarion/")
 examples_path=c("./examples/Primates_discrete/")
+examples_path="examples/Artiodactyl_multistates_fossilised/"
 
+###
+
+test<-read.nexus("examples/Primates_discrete/Primates.trees")
+test
+phytools::writeNexus(test,"examples/Primates_discrete/Primates2.trees")
 
 ## style piecharts
 

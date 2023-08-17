@@ -38,8 +38,9 @@ read_bt_log<-function(x, abbrev_length=20){
                skip=first_line,
                n_max=last_line-1) %>%
       map_chr(~ .x %>% str_replace_all("^ +|^\t+| +$|\t$", "")) %>% # remove leading and trailing spaces
-      map_chr(~ .x %>% str_replace_all("(:  )+|: - |:\t|\t", ";")) %>% # unify column delimiter
+      map_chr(~ .x %>% str_replace_all("(:  )+|: - |:\t|\t|(  )+", ";")) %>% # unify column delimiter
       map_chr(~ .x %>% str_replace_all("; +|;\t+| +;|\t;", ";")) %>% # remove leading and trailing spaces
+      map_chr(~ .x %>% str_replace_all(";+", ";")) %>% # remove duplicated column breaks
       paste0(., "\n",collapse = "\n") %>%
       read_delim(delim=";",col_names = col_names) %>%
       purrr::discard(~all(is.na(.)))
@@ -119,6 +120,21 @@ read_bt_log<-function(x, abbrev_length=20){
                               col_names = TRUE,
                               na=c("",NA, "--")) %>%
       purrr::discard(~all(is.na(.)))
+    
+    # re-define columns for discrete:independent model
+    if(all( c("alpha1","alpha2", "beta1","beta2") %in% colnames(chain_list[[i]]))){
+      chain_list[[i]]<-chain_list[[i]] %>%
+        mutate(q12=alpha2,
+               q13=alpha1,
+               q21=beta2,
+               q24=alpha1,
+               q31=beta1,
+               q34=alpha2,
+               q42=beta1,
+               q43=beta2) %>%
+        select(-starts_with(c("alpha","beta")))
+    }
+    
     
   }
 

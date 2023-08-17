@@ -62,7 +62,7 @@ server <- function(input,output,session){
     
     #### INFO BOX: RUN TYPE
     
-    header_list<-read_header(file_path=file_index() %>%
+    header_list<-read_bt_header(file_path=file_index() %>%
                                filter(filetype=="log") %>%
                                pull(filepath))
                              

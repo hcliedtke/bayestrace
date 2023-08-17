@@ -41,27 +41,7 @@ run_colors <- c(
 
 # ============================================
 # function to read log file header. Takes path to files
-
-read_header<-function(file_path){
-  
-  ### read log header
-  header_list<-list()
-  #log_paths<-list.files(path=dir_path, pattern="Log.txt", full.names = T)
-  log_paths<-file_path
-  #log_files<-basename(log_paths)
-  
-  for(i in 1:length(log_paths)){
-    last_line=grep(pattern = "^\\s+|^\\t+", read_lines(log_paths[i], n_max=1000))[1]-2 # finds first line with a space or tab as the first character, then backtraces 2.
-    
-    header_list[[i]]<-read.delim(log_paths[[i]],header = T,nrows = last_line-1, sep=":") %>%
-      mutate(X=str_remove_all(X, " "))
-  }  
-    # return header list
-    return(header_list)
-    
-
-}
-
+source("functions/read_bt_header.R")
 
 # ============================================
 # function to check whether input is correct and if not, provide informative error messages

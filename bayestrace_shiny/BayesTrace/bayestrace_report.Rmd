@@ -43,25 +43,9 @@ eval_local<-!eval_shiny
 source("./functions/read_bt_log.R")
 source("./functions/read_bt_schedule.R")
 source("./functions/read_bt_stones.R")
+source("./functions/read_bt_header.R")
 
-# create function to read just the header of the log files
-read_header<-function(file_path){
-  
-  ### read log header
-  header_list<-list()
-  log_paths<-file_path
-  
-  for(i in 1:length(log_paths)){
-    last_line=grep(pattern = "^\\s+|^\\t+", read_lines(log_paths[i], n_max=100))[1]-2 # finds first line with a space or tab as the first character, then backtraces 2.
-    
-    header_list[[i]]<-read.delim(log_paths[[i]],header = T,nrows = last_line-1, sep=":") %>%
-      mutate(X=str_remove_all(X, " "))
-  }  
-    # return header list
-    return(header_list)
-    
 
-}
 
 
 # global themes
@@ -115,10 +99,12 @@ tree_path <- file_index %>%
   pull(filepath)
 
 traits_path<-file_index %>%
-  filter(filename == read_header(log_path)[[1]] %>%
-           filter(Options=="Data File Name") %>%
-           pull(2)) %>%
+  filter(filename == read_bt_header(log_path[1])[[1]] %>%
+                        filter(Options=="Data File Name") %>%
+                        pull(2)
+         ) %>%
   pull(filepath)
+
 
 # Define EXTRA burnin (proportion of chain to remove as burnin. Default is 0 (keep entire chain))
 user_burnin=params$user_burnin
@@ -158,7 +144,7 @@ names(stones_path)<-basename(stones_path)
 tree_path<-list.files(path=examples_path, pattern=".tre\\w+$|.nex$|.nexus$", full.names = T)
 
 traits_path <- list.files(examples_path, full.names=T,
-                      pattern=read_header(log_path)[[1]] %>%
+                      pattern=read_bt_header(log_path[1])[[1]] %>%
                         filter(Options=="Data File Name") %>%
                         pull(2))
 
@@ -203,13 +189,16 @@ run_mode<-case_when(
 if(run_mode=="MultiState") {
   dat<-read_tsv(file = traits_path,
               col_names = c("Species","Trait")
-              )
+              ) %>%
+      mutate(Trait=str_replace(Trait, "-", NA_character_))
 }
 if(run_mode=="Discrete") {
   dat<-read_tsv(file = traits_path,
               col_names = c("Species","Trait1","Trait2")
               ) %>%
-    mutate(Trait=paste(Trait1, Trait2, sep=","))
+    mutate(Trait1=str_replace(Trait1, "-", NA_character_),
+           Trait2=str_replace(Trait1, "-", NA_character_),
+           Trait=ifelse(is.na(Trait1)|is.na(Trait2), NA, paste(Trait1, Trait2, sep=",")))
 }
  
 # load schedule files
@@ -237,11 +226,18 @@ acceptance_rate$schedule<-acceptance_rate$schedule  %>%
 
 ```
 
+
 ```{r}
 # define colour space
 #traits_colors<-sample(brewer.pal(8,"Dark2"), length(unique(dat$Trait)))
-traits_colors<-run_colors[1:length(unique(dat$Trait))]
-names(traits_colors)<-unique(dat$Trait)
+if(run_mode=="Discrete"){
+  traits_colors=tibble(trait=c("0,0","0,1","1,0","1,1"),
+                      cols=run_colors[1:4]) %>%
+    deframe()
+} else{
+  traits_colors<-run_colors[1:length(unique(na.omit(dat$Trait)))]
+  names(traits_colors)<-unique(na.omit(dat$Trait))
+}
 ```
 
 ```{r}
@@ -542,7 +538,7 @@ if(!comparison_mode){
 transition_nodes<-tibble(
   id = unique(c(transition_dat$from, transition_dat$to)),
   label = id,
-  group = id,
+  Run_ID = id,
   color = traits_colors[id],
   shape="circle",
   font.color="white"
@@ -569,19 +565,29 @@ visNetwork::visNetwork(transition_nodes, transition_edges) %>%
     summarise_all(mean) %>%
     pivot_longer(-`Run ID`,names_to="parameter", values_to = "rate") %>%
     mutate(from=str_sub(parameter, 2,2), to=str_sub(parameter, 3,3)) %>%
-    arrange(from) 
+    arrange(from)
 
   transition_nodes<-transition_dat %>%
     select(`Run ID`, from, to) %>%
     pivot_longer(-`Run ID`, values_to="label") %>%
     select(-name) %>%
     distinct_all() %>%
-    rename(group=`Run ID`) %>%
-    mutate(id=paste0(group, label),
+    rename(Run_ID=`Run ID`) %>%
+    mutate(id=paste0(Run_ID, label),
            color=traits_colors[label],
            shape="circle",
            font.color="white")
     
+  if(run_mode=="Discrete") {
+    
+    transition_nodes<-transition_nodes %>%
+      mutate(label=case_when(
+        label=="1" ~ "0,0",
+        label=="2" ~ "0,1",
+        label=="3" ~ "1,0",
+        label=="4" ~ "1,1"),
+        color=traits_colors[label])
+  }
 
 transition_edges<-transition_dat %>%
   select(`Run ID`, from, to, rate) %>%
@@ -595,7 +601,7 @@ visNetwork::visNetwork(transition_nodes, transition_edges) %>%
   visPhysics(solver = "forceAtlas2Based", 
              forceAtlas2Based = list(gravitationalConstant = -100)) %>%
   visInteraction(navigationButtons = TRUE) %>%
-  visOptions(selectedBy = list(variable="group", multiple=T))
+  visOptions(selectedBy = list(variable="Run_ID", multiple=T))
 }
 
 
@@ -620,8 +626,9 @@ if(comparison_mode) {
     geom_vline(data=. %>%
                group_by(`Run ID`, transition) %>%
                summarise(rate=mean(rate)),
-             aes(xintercept=rate, linetype="dashed")) +
+             aes(xintercept=rate, linetype="dashed", colour=`Run ID`)) +
     scale_fill_manual(values=unname(run_colors)) +
+    scale_color_manual(values=unname(run_colors)) +
     facet_wrap(~transition, scales = "free") +
     theme(legend.position = "none")
   
@@ -717,7 +724,7 @@ Column {data-width=70%}
 
 ```{r}
 
-big_tree<-length(tre$tip.label)>50
+big_tree<-length(tre$tip.label)>100
 
 plot(tre,
      show.tip.label = !big_tree,
@@ -980,18 +987,34 @@ if(st & multi_stones){
 ## calculate log Bayes Factor (x1=complex model, x2=simple model)
 LogBF<-function(mod1,mod2){2*(mod1-mod2)}
 
-### rank models in decreasing complexity (based on number of columns in the chains)
+### rank models in decreasing complexity 
 
-model_complexity<- bt$chain_clean %>%
+if(run_mode=="Discrete"){
+mods_tmp<-bt$header %>%
+    filter(Options=="Model") %>%
+    select(-Options) %>%
+    pivot_longer(everything()) %>%
+    deframe() %>%
+  sort()
+
+mod1=names(mods_tmp)[str_detect(mods_tmp, "Discrete: Dependent")][1]
+mod2=names(mods_tmp)[str_detect(mods_tmp, "Discrete: Independent")][1]
+
+  
+} else {
+  ## if not discrete or otherwise specified, rank based on number of columns in the chains
+  model_complexity<- bt$chain_clean %>%
   split(f = as.factor(.$`Run ID`)) %>%
   lapply(function(x) x[,colSums(is.na(x))<nrow(x)]) %>%
   lapply(function(x) x[,colSums(x != 0) > 0]) %>%
   sapply(.,ncol)
 
-
-### select most complex and next most complex model
+  ### select most complex and next most complex model
 mod1=names(which.max(model_complexity))[1]
-mod2=names(which.min(model_complexity))[1]
+mod2=names(which.min(model_complexity))[1] 
+
+}
+
 
 ### calculate logBF
 log_bf<-LogBF(mod1=stones$`marginal likelihood` %>%
@@ -1028,6 +1051,7 @@ if(st){
   stones_pow_gg<-stones$stones %>%
     ggplot(aes(x=`Stone No`, y=Power, colour=`Run ID`)) +
     geom_line() +
+    scale_colour_manual(values=unname(run_colors)) +
     theme(legend.position = "none")
   
   #plotlyfy
@@ -1047,6 +1071,7 @@ if(st){
   stones_marml_gg<-stones$stones %>%
     ggplot(aes(x=`Stone No`, y=`Stone MLh`, colour=`Run ID`)) +
     geom_line() +
+      scale_colour_manual(values=unname(run_colors)) +
     theme(legend.position = "bottom") +
     theme(legend.position = "none")
   
@@ -1067,6 +1092,7 @@ if(st){
   running_marml_gg<-stones$stones %>%
     ggplot(aes(x=`Stone No`, y=`Running MLh`, colour=`Run ID`)) +
     geom_line() +
+      scale_colour_manual(values=unname(run_colors)) +
     theme(legend.position = "bottom") +
     theme(legend.position = "none")
   
