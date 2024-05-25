@@ -11,7 +11,8 @@ If the same mode was run repeatedly, to check convergence of the MCMC chain, or 
 ## Example Dashboards
 
 * Multistates - Ancestral States reconstruction [dashboard](https://rawcdn.githack.com/hcliedtke/bayestrace/388852d5915b63b0cd12e55aa7e150733be16bc2/bayestrace_shiny/BayesTrace/examples/Artiodactyl_multistates_anc_states/BayesTrace_report.html)
-* Multistates - Reverse Jump model reduction [dashboard](./bayestrace_shiny/BayesTrace/examples/Artiodactyl_reduction/bayestrace_flex_reduction.html)
+* Discrete states - [dashboard](https://rawcdn.githack.com/hcliedtke/bayestrace/1cdf46504ebe67e2789ce7d2137359cd211c0e24/bayestrace_shiny/BayesTrace/examples/Primates_discrete/BayesTrace_report.html#model-comparison---logbf)
+* Model comparison - runs with vs. without covarion [dashboard](https://rawcdn.githack.com/hcliedtke/bayestrace/1cdf46504ebe67e2789ce7d2137359cd211c0e24/bayestrace_shiny/BayesTrace/examples/Bird_covarion/BayesTrace_report.html#mcmc-diagnostics)
 
 ## Usage
 
