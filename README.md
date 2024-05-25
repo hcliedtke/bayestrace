@@ -1,12 +1,20 @@
 # BayesTrace
 
-A lite version of BayesTrace can be accessed [here](https://hcliedtke.shinyapps.io/BayesTrace/). 
+
+## The App
+
+A lite version of BayesTrace app can be accessed [here](https://hcliedtke.shinyapps.io/BayesTrace/). 
 
 This is a reporting and diagnostics tool for the popular program [BayesTraits](http://www.evolution.reading.ac.uk/BayesTraitsV4.1.2/BayesTraitsV4.1.2.html). It allows you to dump the plain text outputs of a BayesTraits analysis into a browser-based user interface (a Shiny app) and produce an interactive report with diagnostics metrics, plots and other useful visualization of results.  
 
 BayesTraits can be run in different modes. BayesTrace is able to identify which mode was run and provide adequate outputs
 
 If the same mode was run repeatedly, to check convergence of the MCMC chain, or with slightly different parameters to check e.g. prior sentitivity, these multiple runs (of the same mode) can be uploaded into a single BayesTrace report.
+
+Here are some screen shots of what the interactive reports/dashboards look like:
+
+<img width="839" alt="Screenshot 2024-05-25 at 19 10 33" src="https://github.com/hcliedtke/bayestrace/assets/28728517/39bc3aea-5fcf-4526-a511-76f11c27e5b2">
+
 
 ## Example Dashboards
 
