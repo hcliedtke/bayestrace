@@ -10,7 +10,7 @@ If the same mode was run repeatedly, to check convergence of the MCMC chain, or 
 
 ## Example Dashboards
 
-* Multistates - Ancestral States reconstruction [dashboard](./bayestrace_shiny/BayesTrace/examples/Artiodactyl_multistates_anc_states/BayesTrace_report.html)
+* Multistates - Ancestral States reconstruction [dashboard](https://rawcdn.githack.com/hcliedtke/bayestrace/388852d5915b63b0cd12e55aa7e150733be16bc2/bayestrace_shiny/BayesTrace/examples/Artiodactyl_multistates_anc_states/BayesTrace_report.html)
 * Multistates - Reverse Jump model reduction [dashboard](./bayestrace_shiny/BayesTrace/examples/Artiodactyl_reduction/bayestrace_flex_reduction.html)
 
 ## Usage
