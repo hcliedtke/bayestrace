@@ -129,7 +129,8 @@ if(!is.numeric(params$abbrnames)){
 #setwd("~/Documents/git_projects/bayestrace/bayestrace_shiny/BayesTrace/")
 
 #examples_path=c("./examples/Artiodactyl_multistates_anc_states/")
-
+examples_path=c("/Users/L9HRVWMTX/Documents/Reviews/journals/Evolution/25-0093/doi_10_5061_dryad_3tx95x6sk__v20250307/bayestraits/bayestrace_test/")
+                
 # Define file paths and names
 
 log_path<-list.files(path=examples_path, pattern=".Log.txt", full.names = T)
@@ -141,9 +142,12 @@ names(sched_path)<-basename(sched_path)
 stones_path<-list.files(path=examples_path, pattern=".Stones.txt", full.names = T)
 names(stones_path)<-basename(stones_path)
 
-tree_path<-list.files(path=examples_path, pattern=".tre\\w+$|.nex$|.nexus$", full.names = T)
+tree_path<-paste0(examples_path,
+                      pattern=read_bt_header(log_path[1])[[1]] %>%
+                        filter(Options=="Tree File Name") %>%
+                        pull(2))
 
-traits_path <- list.files(examples_path, full.names=T,
+traits_path <- paste0(examples_path,
                       pattern=read_bt_header(log_path[1])[[1]] %>%
                         filter(Options=="Data File Name") %>%
                         pull(2))
