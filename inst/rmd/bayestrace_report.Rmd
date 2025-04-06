@@ -208,7 +208,7 @@ acceptance_rate<-read_bt_schedule(file_path = sched_path, abbrev_length = abbrev
 
 # load stones files
 if(length(stones_path)>0){
-  stones<-read_bt_stones(fike_path = stones_path, abbrev_length = abbrev_length)
+  stones<-read_bt_stones(file_path = stones_path, abbrev_length = abbrev_length)
 }
 ```
 
