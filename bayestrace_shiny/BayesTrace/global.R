@@ -63,33 +63,44 @@ input_check<-function(file_index){
   input_check$trees=length(which(file_index$filetype=="tree"))==1
   
   ### check if all files in the log have been uploaded
-  
-  # read_header(file_path= file_index %>%
-  #               filter(filetype=="log") %>%
-  #                pull(filepath))
-  
-  
+  traits_path<-file_index %>%
+    filter(filename == read_bt_header(log_path[1])[[1]] %>%
+             filter(Options=="Data File Name") %>%
+             pull(2)
+    ) %>%
+    pull(filepath)
+  input_check$traits=length(traits_path)==1
   
   ### check if run modes are different
   
   error_list<-list()
   
-  if(!input_check$logs) error_list$logs <-  "No log files found. Are you sure you have uploaded at least one file with the extension .Log.txt?"
+  if(!input_check$logs){
+    error_list$logs <-  "No log files found. Are you sure you have uploaded at least one file with the extension .Log.txt?"} else{
+      error_list$logs <-"Files uploaded correctly"
+  }
   
-  if(!input_check$schedule) error_list$schedule <- "No schedule files found. Are you sure you have uploaded at least one file with the extension .Schedule.txt?"
+  if(!input_check$schedule){
+    error_list$schedule <- "No schedule files found. Are you sure you have uploaded at least one file with the extension .Schedule.txt?"} else{
+      error_list$schedule <-"Files uploaded correctly"
+    }
   
-  if(!input_check$trees) error_list$trees <- "No tree file found. Are you sure you have uploaded at least one file with the extension .trees, or .tre"
+  if(!input_check$trees){
+    error_list$trees <- "No tree file, or more than one tree file found. Are you sure you have uploaded exactly one file with the extension .tre, .trees, or .nexus?"} else{
+      error_list$trees <-"Files uploaded correctly"
+    }
+  
+  if(!input_check$traits){
+    error_list$traits <- "No traits file, or more than one traits file found. Are you sure you have uploaded the same traits file you used to run BayesTraits?"} else{
+      error_list$trees <-"Files uploaded correctly"
+    }
   
   
   ## enframe
-  if(length(error_list)>0){
-    errors<-error_list %>% 
+    input_check$errors<-error_list %>% 
       enframe()
-  } else {
-    errors<-data.frame(x="All files uploaded correctly")
-  }
-  
-  return(errors)
+
+    return(input_check)
   
 }
 

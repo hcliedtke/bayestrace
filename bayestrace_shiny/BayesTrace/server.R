@@ -23,22 +23,42 @@ server <- function(input,output,session){
     
     )
   })
+  
+  #=======================
+  # make a reactive function to see if at least 1 log file has been uploaded
+  
+  log_file_exists<-reactive({
+    req(input$bt_files)
+    str_detect(string = input$bt_files$name,pattern = "Log.txt") %>%
+      any()
+  })
+  
 
   #=======================
   # Index user-specified BayesTraits files
   
   file_index<-reactive({
     req(input$bt_files)
-    data.frame(filename=input$bt_files$name) %>%
-      mutate(
-        filetype=case_when(
-          str_detect(filename,"Log.txt") ~ "log",
-          str_detect(filename,"Schedule.txt") ~ "schedule",
-          str_detect(filename,"Stones.txt") ~ "stones",
-          str_detect(filename,"\\.tre\\w+$|\\.nex$|\\.nexus$") ~ "tree",
-          TRUE ~ "unknown"),
-        filepath=input$bt_files$datapath
+    if(log_file_exists()){
+      data.frame(filename=input$bt_files$name) %>%
+        mutate(
+          filetype=case_when(
+            str_detect(filename,"Log.txt") ~ "log",
+            str_detect(filename,"Schedule.txt") ~ "schedule",
+            str_detect(filename,"Stones.txt") ~ "stones",
+            str_detect(filename,"\\.tre\\w+$|\\.nex$|\\.nexus$") ~ "tree",
+            TRUE ~ "unknown"),
+          filepath=input$bt_files$datapath
         )
+    } else{
+      showModal(modalDialog(
+        title = "Oops...",
+        "Please upload at least one BayesTraits Log file (must end in .Log.txt)",
+        easyClose = TRUE
+      ))
+      
+    }
+    
                
   })
   
