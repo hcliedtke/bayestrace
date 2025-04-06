@@ -1,6 +1,0 @@
-2
-2
-LogFile Primates_discrete_independent
-PriorAll exp 10
-Stones 100 1000
-Run

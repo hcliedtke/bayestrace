@@ -1,8 +1,0 @@
-1
-2
-LogFile Artiodactyl_reduction_run2
-sample 1000
-BurnIn 5000
-iterations 20005000
-RevJumpHP exp 0 100
-Run
