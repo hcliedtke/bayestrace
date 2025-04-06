@@ -15,9 +15,7 @@ read_bt_header<-function(file_path){
 
   ### read log header
   header_list<-list()
-  #log_paths<-list.files(path=dir_path, pattern="Log.txt", full.names = T)
   log_paths<-file_path
-  #log_files<-basename(log_paths)
 
   for(i in 1:length(log_paths)){
     last_line=grep(pattern = "^\\s+|^\\t+", read_lines(log_paths[i], n_max=1000))[1]-2 # finds first line with a space or tab as the first character, then backtraces 2.

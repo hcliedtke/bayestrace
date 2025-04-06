@@ -9,7 +9,7 @@
 #' @return returns a BayesTrace report as HTML file.
 #' @import rmarkdown flexdashboard scales plotly reactable coda ape visNetwork
 #' @examples
-#' read_bt_log("./my_bayestraits_run.Schedule.txt")
+#' render_bayestrace("./path/to/BayesTrace/output")
 
 render_bayestrace<-function(file_path,chains_burnin=0,downsample=10000,abbrev_length=20){
 

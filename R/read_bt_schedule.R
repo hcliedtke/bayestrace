@@ -7,7 +7,7 @@
 #' @return returns a list of tables for BayesTraits Schedule files. This includes the header and the acceptance rates table.
 #' @import readr tidyverse
 #' @examples
-#' read_bt_log("./my_bayestraits_run.Schedule.txt")
+#' read_bt_schedule("./my_bayestraits_run.Schedule.txt")
 
 read_bt_schedule<-function(file_path, abbrev_length=20){
 
