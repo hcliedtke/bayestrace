@@ -1,0 +1,125 @@
+---
+title: "How to use BayesTrace to run BayesTraits diagnostics"
+author: "Christoph Liedtke"
+date: "April, 2024"
+output: 
+  html_document:
+    self_contained: true
+    toc: True # table of content true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+    depth: 4  
+    theme: united  
+    highlight: tango  
+  pdf_document:
+    highlight: tango
+    number_sections: yes
+    toc: yes
+    toc_depth: 4 
+vignette: >
+  %\VignetteIndexEntry{How to use BayesTrace to run BayesTraits diagnostics}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}    
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,  warning = FALSE, message = FALSE, echo = TRUE, tidy = FALSE, size="small")
+options(width=100)
+```
+  
+## Introduction
+  
+This package is designed to help report and diagnose the MCMC output of [BayesTraits](https://www.evolution.reading.ac.uk/BayesTraitsV4.1.3/BayesTraitsV4.1.3.html). It contains only a handful of functions to read the different output files into R, and the primary function to generate a report/dashboard. 
+  
+### Loading the package
+  
+bayestrace is a package written in the R programming language. The most recent version can be downloaded from ['gitHub'](https://github.com/hcliedtke/bayestrace), using the 'devtools' library. The first step is therefore to make sure that the ['devtools'](https://CRAN.R-project.org/package=devtools) package is installed and loaded.
+
+```{r message=FALSE, eval=FALSE}
+library(devtools)
+install_github("hcliedtke/bayestrace", build_vignettes = FALSE)
+```
+
+```{r message=FALSE, warning=FALSE}
+library(bayestrace)
+library(tidyverse)
+```
+
+## Reading BayesTraits output into R
+  
+BayesTraits has the following possible output files: 
+
+| |Extension |File |
+|---|--------|-----|
+|mandatory|.Log.txt|Log file contains the model options and output|
+|mandatory|.Schedule.txt|Schedule from the MCMC chain containing information about mixing|
+|optional|.Stones.txt|Stepping stone sampler file, the last line will contain the estimated log marginal likelihood, additional information about the stones is recorded.|
+|optional|.AncStates.txt|Estimated ancestral sates from the Geographical model|
+|optional|.VarRates.txt|Transforms applied to the tree from the variable rates and local transform models|
+|optional|.Output.trees|The output trees scaled by variables rates or other transforms, saved in nexus format, can be turned on using the SaveTrees command|
+
+So far, BayesTrace has dedicated functions to read three of these:
+  
+1. .Log.txt
+2. .Schedule.txt
+3. .Stones.txt
+
+These output files all tend to have a 'header' that is not strictly structured, followed by a 'body' that is usually a delimted table. In order to read these files, BayesTrace loads the different header sections and the body as separate tables in a list. If more than one file of the same type is loaded, the headers of each file are bound into multiple columns of the same table, and the bodies are appended, with an additional ID column.
+
+### Reading and examining log files
+
+#### Reading log files
+
+Let's first read a single log file
+
+```{r message=FALSE, warning=FALSE, eval=FALSE}
+bt_log<-read_bt_log(file_path="../inst/extdata/Artiodactyl_multistates_anc_states/Artiodactyl_multistate_run1.Log.txt")
+str(bt_log)
+```
+
+This has loaded the header into 6 different tables (header, restrictions, priors,trees, tags and recon) and the MCMC chain into a 7th table (chains). Depending on the options that were used to run BayesTraits, the exact number of tables maybe be different. 
+
+In the same way, we can load multiple log files from replicated runs at once.
+
+```{r}
+bt_logs<-read_bt_log(file_path=c(
+  "../inst/extdata/Artiodactyl_multistates_anc_states/Artiodactyl_multistate_run1.Log.txt",
+  "../inst/extdata/Artiodactyl_multistates_anc_states/Artiodactyl_multistate_run2.Log.txt"))
+```
+
+We can now compare the headers for example
+
+```{r}
+kableExtra::kable(bt_logs$header)
+```
+
+In this case they are runs with the same settings, but they don't have to be.  
+  
+
+#### Plotting chains
+
+Besides inspecting the header tables to see the settings that were applied, the output of the MCMC chains can now be easily plotted. 
+
+```{r}
+bt_logs$chain %>%
+  ggplot(aes(x=Iteration, y=Lh, color=`Run ID`)) +
+  geom_line(alpha=0.5) +
+  theme_bw() +
+  ggtitle("MCMC chains for two replicated runs")
+```
+
+
+Here we can see two stable chains, with the desired fuzzy caterpillar shape. The chains are highly convergent and the burn-in setting was appropriate.  
+
+#### Root states 
+
+From the log file we can also plot the root state
+```{r}
+
+```
+
+
+

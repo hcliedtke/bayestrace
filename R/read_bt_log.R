@@ -16,9 +16,8 @@ read_bt_log<-function(file_path, read_chains=T, abbrev_length=20){
   ## stop function if wrong files loaded
 
   if(!all(str_detect(file_path, "\\.Log\\.txt$"))){
-    return("One or more files do not have the expected '.Log.txt' extention")
-  } else{
-
+    stop("One or more files do not have the expected '.Log.txt' extention")
+  }
 
 
     ### supress tidyverse messages and warnings
@@ -190,8 +189,6 @@ read_bt_log<-function(file_path, read_chains=T, abbrev_length=20){
       return(df_list)
 
     })) # close warning suppression
-
-  } # close file check if/else
 
 } # close function
 
