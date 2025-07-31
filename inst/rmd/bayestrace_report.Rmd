@@ -31,6 +31,13 @@ library(reactable)
 library(coda)
 library(ape)
 library(visNetwork)
+library(ggraph)
+library(igraph)
+library(tidygraph)
+library(ggtree)
+library(scatterpie)
+library(ggiraph)
+library(htmlwidgets)
 
 # establish if running via shiny or locally
 eval_shiny<-params$shinyfy==TRUE
@@ -187,7 +194,6 @@ run_mode<-case_when(
 
 
 # load traits file
-
 if(run_mode=="MultiState") {
   dat<-read_tsv(file = traits_path,
               col_names = c("Species","Trait")
@@ -724,7 +730,7 @@ Column {data-width=70%}
 
 ### Phylogeny
 
-```{r}
+```{r eval=FALSE, echo=FALSE}
 
 big_tree<-length(tre$tip.label)>100
 
@@ -746,6 +752,139 @@ if(!is.null(bt$tags)){
   legend("bottomleft", legend = names(traits_colors), pch=15, col=traits_colors, bty="n")
 }
 ```
+
+```{r eval=FALSE, fig.width=12}
+
+big_tree<-length(tre$tip.label)>100
+
+phylo_canv<-phylocanvas(tre,treetype = ifelse(big_tree,"circular", "rectangular"), alignlabels = F)
+for(i in 1:length(tree$tip.label)){
+  phylo_canv<-phylo_canv %>%
+  style_node(tree$tip.label[i], nodesizeratio = 2, fillcolor=unname(traits_colors[as.character(tre$traits)][i])) 
+}
+
+# add ancestral states
+if(!is.null(bt$tags)){
+  
+  for(i in 1:length(anc_df$node_num)){
+    
+  anc_i<-anc_df %>%
+    select(unique(dat$Trait)) %>%
+    which.max() %>%
+    names()
+
+  phylo_canv<-phylo_canv %>%
+  style_node(anc_df$node_num[i], nodesizeratio = 2, fillcolor=unname(traits_colors[as.character(anc_i)])) 
+  }
+  
+}
+
+
+phylo_canv
+
+```
+
+
+
+```{r}
+# decide whether tree is large or not
+big_tree<-length(tre$tip.label)>100
+
+# ensure node labels are sequential node numbers
+tre$node.label<-(length(tre$tip.label)+1):(length(tre$tip.label)+tre$Nnode)
+
+# Convert phylo object to igraph and maintain edge lengths
+ig_tre <- as.igraph.phylo(tre, directed = TRUE)
+
+# make layout data for plotting
+tg <- as_tbl_graph(ig_tre)
+layout <- create_layout(tg, layout = "dendrogram",circular = T,length=tre$edge.length) 
+
+
+# make tip and node dummy matrix
+traits_dummy<- dat %>%
+  mutate(counts = 1) %>%
+  spread(Trait, counts, fill = 0) %>%
+    # conditionally add ancestral states if available
+  {if(!is.null(bt$tags)){
+       bind_rows(
+         anc_df %>%
+         select(Species=node_num, all_of(unique(dat$Trait))) %>%
+         mutate(Species=as.character(Species))
+       )
+    } else {
+      .
+    }
+  }
+
+# merge tip data with ancestral states and add to graph layout
+layout<-layout %>%
+  left_join(traits_dummy, by=c("name"="Species"))
+
+# Plot tree + pies
+gg<-layout %>%
+  ggraph() +
+  geom_edge_elbow() +
+  geom_point_interactive(
+    data=. %>%
+      filter(leaf==TRUE) %>%
+      left_join(dat, by=c("name"="Species")), ### if tips are inferred too this could be changed to show pie charts on tips as well
+    size = ifelse(big_tree, 0.5, 4),
+    aes(x=x, y=y, color=Trait, tooltip = name)) +
+  geom_scatterpie(
+    data = layout %>%
+      filter(leaf==FALSE),
+    cols = unique(dat$Trait),
+    pie_scale = ifelse(big_tree, 1, 2),
+    legend_name = "Trait",
+    color=NA) +
+  scale_color_manual_interactive(values = traits_colors) +
+  scale_fill_manual_interactive(values = traits_colors) +
+  coord_fixed(clip = "off") +
+  theme_void() +
+  theme(plot.margin = margin(t = 30, r = 30, b = 30, l = 30),
+        legend.position="left",
+        legend.justification = "top")
+
+
+# add tip labels only if tree is small
+if(!big_tree){
+  gg<-gg +
+   geom_node_text(data = . %>%
+                   filter(leaf==TRUE),
+                 aes(
+                   x = x * 1.05,
+                   y = y * 1.05,
+                   filter = leaf,
+                   label = name,
+                   angle = ifelse(
+                     x >= 0,
+                     asin(y) * 360 / 2 / pi,
+                     360 - asin(y) * 360 / 2 / pi
+                   ),
+                   hjust = ifelse(
+                     x >= 0, 0, 1
+                   )),
+                   size=3)
+}
+
+## plot static
+#gg
+
+## plot interactive
+
+girafe(ggobj = gg,
+       options=list(
+         opts_zoom(min = 0.25, max = 10),  # enable zooming immediately
+         opts_sizing(rescale = TRUE),                 #  make zooming relative
+         opts_toolbar(saveaspng = TRUE),               # optional: add save button
+         opts_tooltip(opacity = 0.7, css = "background-color:white; padding:5px; border-radius:4px;"),
+         sizingPolicy(defaultWidth = "50%", defaultHeight = "200px")
+       ),
+  width_svg = 8,height_svg = 8
+       )
+```
+
 
 
 RevJ Model Reduction {data-orientation=columns, data-icon="fa-chart-area"}
