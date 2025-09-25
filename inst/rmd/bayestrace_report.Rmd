@@ -38,6 +38,7 @@ library(ggtree)
 library(scatterpie)
 library(ggiraph)
 library(htmlwidgets)
+library(phylocanvas)
 
 # establish if running via shiny or locally
 eval_shiny<-params$shinyfy==TRUE
@@ -469,7 +470,7 @@ for(i in unique(bt$chain_clean$`Run ID`)){
 # plot
 gg_autocorr<-bind_rows(bt_acf,.id = "Run ID") %>%
   ggplot(aes(x=Lag, y=acf, color=`Run ID`)) +
-  geom_hline(yintercept = 0, size=0.5) +
+  geom_hline(yintercept = 0, linewidth=0.5) +
   geom_point(size = 2) +
   geom_segment(aes(xend = Lag, yend = 0), size = 0.75) +
   scale_colour_manual(values=unname(run_colors)) +
@@ -758,9 +759,9 @@ if(!is.null(bt$tags)){
 big_tree<-length(tre$tip.label)>100
 
 phylo_canv<-phylocanvas(tre,treetype = ifelse(big_tree,"circular", "rectangular"), alignlabels = F)
-for(i in 1:length(tree$tip.label)){
+for(i in 1:length(tre$tip.label)){
   phylo_canv<-phylo_canv %>%
-  style_node(tree$tip.label[i], nodesizeratio = 2, fillcolor=unname(traits_colors[as.character(tre$traits)][i])) 
+  style_node(tre$tip.labe[i], nodesizeratio = 2, fillcolor=unname(traits_colors[as.character(tre$traits)][i])) 
 }
 
 # add ancestral states
@@ -804,7 +805,7 @@ layout <- create_layout(tg, layout = "dendrogram",circular = T,length=tre$edge.l
 # make tip and node dummy matrix
 traits_dummy<- dat %>%
   mutate(counts = 1) %>%
-  spread(Trait, counts, fill = 0) %>%
+  tidyr::spread(Trait, counts, fill = 0) %>%
     # conditionally add ancestral states if available
   {if(!is.null(bt$tags)){
        bind_rows(
