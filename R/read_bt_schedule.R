@@ -13,7 +13,7 @@ read_bt_schedule<-function(file_path, abbrev_length=20){
 
   ## read file names
   sched_paths<-file_path
-  sched_names<-str_remove_all(basename(file_path), pattern="\\.Schedule\\.txt")
+  sched_names<-str_remove_all(basename(sched_paths), pattern="\\.Schedule\\.txt")
   sched_names_abbr<-abbreviate(sched_names,minlength=abbrev_length)
 
   ## make empty lists
@@ -28,13 +28,11 @@ read_bt_schedule<-function(file_path, abbrev_length=20){
     })
   }
 
-
-
   ## fill the empty lists with the different sections. Loop over multiple file paths
   for(i in 1:length(sched_paths)){
 
     ## find 1st line of table
-    first_line=grep(pattern = "^Rate Tried", read_lines(sched_paths[i], n_max=20))-1
+    first_line=grep(pattern = "^Rate Tried", read_lines(sched_paths[i], n_max=100))-1
 
     ## get header info
     header_list[[i]]<-read_tsv(file = sched_paths[i], n_max = first_line-1, skip = 1, col_names = FALSE) %>%
