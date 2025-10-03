@@ -139,24 +139,30 @@ if(!is.numeric(abbrev_length)){
 
 # Define file paths and names
 
-log_path<-list.files(path=file_path, pattern=".Log.txt", full.names = T)
-names(log_path)<-basename(log_path)
+all_files<-list.files(path=file_path, full.names = T, recursive = T)
 
-sched_path<-list.files(path=file_path, pattern=".Schedule.txt", full.names = T)
+log_path<-all_files[grep(".Log.txt", all_files)]
+names(log_path)<-basename(log_path) 
+ 
+
+sched_path<-all_files[grep(".Schedule.txt", all_files)]
 names(sched_path)<-basename(sched_path)
 
-stones_path<-list.files(path=file_path, pattern=".Stones.txt", full.names = T)
+stones_path<-all_files[grep(".Stones.txt", all_files)]
 names(stones_path)<-basename(stones_path)
 
-tree_path<-paste0(file_path,"/",
-                      pattern=read_bt_header(log_path[1]) %>%
-                        filter(Options=="Tree File Name") %>%
-                        pull(2))
 
-traits_path <- paste0(file_path,"/",
-                      pattern=read_bt_header(log_path[1]) %>%
+tr_name<-read_bt_header(log_path[1]) %>%
+                        filter(Options=="Tree File Name") %>%
+                        pull(2)
+
+tree_path<-all_files[grep(tr_name, all_files)][1] # keep only first tree file it finds
+
+tra_name<-read_bt_header(log_path[1]) %>%
                         filter(Options=="Data File Name") %>%
-                        pull(2))
+                        pull(2)
+
+traits_path <- all_files[grep(tra_name, all_files)][1] # keep only first traits file it finds
 
 # custom settings
 # 
@@ -265,18 +271,19 @@ Column {data-width=60%}
 ```{r}
 # cat table, highlighting differences
 bt$header %>%
-  mutate(not_same=if_any(2:ncol(.), ~ .x != bt$header[,2])) %>% # identify columns that are not the same
+  mutate(not_same=if_any(2:ncol(.), ~ .x != bt$header[[2]])) %>% # identify columns that are not the same
   reactable(
     defaultPageSize = 50,
     defaultColDef = colDef(
-      style = function(value, index) {
-        if (.$not_same[index]) {
-          color="red"
-        } else {
-          color <- "black"
-        } 
-        list(color = color)
-      }
+      style = JS(
+        "function(cellInfo) {
+          if (cellInfo.row.not_same) {
+            return {color: 'red'}
+          } else {
+            return {color: 'black'}
+          }
+        }"
+      )
     ),
     columns = list(
       not_same = colDef(show=FALSE)
@@ -351,7 +358,7 @@ Column {data-width=40%}
 gg_chain_density<-bt$chain_clean %>%
   ggplot(aes(x=Lh, fill=`Run ID`)) +
   geom_density(alpha=0.5, color=NA) +
-  scale_colour_manual(values=unname(run_colors)) +
+  scale_fill_manual(values=unname(run_colors)) +
   theme(legend.position = "none")
 
 # plotly-fy
