@@ -4,7 +4,7 @@ Title: Reproting tool for BayesTrace
 Version: 1.0.0
 Author: H. Christoph Liedtke
 Maintainer: H. Christoph Liedtke <christoph.liedtke@ebd.csic.es>
-Description: This package generates an HTML report, in the style of a dashboard, evaluating the most important output of an analysis conducted using the software BayesTraits (https://www.evolution.reading.ac.uk/BayesTraitsV4.1.3/BayesTraitsV4.1.3.html).
+Description: This package generates an HTML report, in the style of a dashboard, evaluating the most important output of an analysis conducted using the software BayesTraits (http://www.evolution.reading.ac.uk/BayesTraitsV5.0.2/BayesTraitsV5.0.2.html).
 License: MIT
 Encoding: UTF-8
 LazyData: true
