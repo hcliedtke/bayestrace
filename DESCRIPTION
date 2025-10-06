@@ -9,3 +9,20 @@ License: MIT
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.2.3
+Imports:
+  flexdashboard,
+  scales,
+  tidyverse,
+  plotly,
+  reactable,
+  coda,
+  ape,
+  visNetwork,
+  ggraph,
+  igraph,
+  tidygraph,
+  ggtree,
+  scatterpie,
+  ggiraph,
+  htmlwidgets,
+  phylocanvas

@@ -84,6 +84,12 @@ run_colors <- c(
   "6"   = "#8d96a3"
 )
 
+# add more colours
+more_colors<-colours()[seq(3, 201, by=7)]
+names(more_colors)<-as.character(7:35)
+
+run_colors<-c(run_colors, more_colors)
+
 ```
 
 
@@ -195,6 +201,7 @@ if(class(tre)=="multiPhylo"){
 
 # define run mode
 run_mode<-case_when(
+  any(str_detect(bt$header, "Discrete")) &  any(str_detect(bt$header, "MultiState")) ~ "Different run types loaded",
   any(str_detect(bt$header, "Discrete")) ~ "Discrete",
   any(str_detect(bt$header, "MultiState")) ~ "MultiState"
   )
@@ -243,8 +250,7 @@ acceptance_rate$schedule<-acceptance_rate$schedule  %>%
 
 
 ```{r}
-# define colour space
-#traits_colors<-sample(brewer.pal(8,"Dark2"), length(unique(dat$Trait)))
+# define colour space for descrete runs
 if(run_mode=="Discrete"){
   traits_colors=tibble(trait=c("0,0","0,1","1,0","1,1"),
                       cols=run_colors[1:4]) %>%
