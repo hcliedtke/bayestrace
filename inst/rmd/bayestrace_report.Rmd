@@ -531,11 +531,11 @@ if(comparison_mode) {
      coord_polar("y") +
      scale_fill_manual(values = traits_colors) +
      theme_void() + 
-     theme(legend.position = "bottom")
+     theme(legend.position = "right")
 }
 
 # plot
-ggiraph::girafe(ggobj=gg_root_state, width_svg = 15, height_svg = 4)
+ggiraph::girafe(ggobj=gg_root_state, width_svg = 12, height_svg = 4)
 #gg_root_state
 
 ```
