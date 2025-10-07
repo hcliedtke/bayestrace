@@ -11,7 +11,6 @@ params:
   file_path: file_path
   chains_burnin: chains_burnin
   downsample: downsample
-  abbrev_length: abbrev_length
   shinyfy: shinyfy
 ---
 
@@ -39,6 +38,7 @@ library(scatterpie)
 library(ggiraph)
 library(htmlwidgets)
 library(phylocanvas)
+library(ggiraph)
 
 # establish if running via shiny or locally
 eval_shiny<-params$shinyfy==TRUE
@@ -49,7 +49,6 @@ file_index<-params$file_index
 file_path<-params$file_path
 chains_burnin<-params$chains_burnin
 downsample<-params$downsample
-abbrev_length<-params$abbrev_length
 
 ```
 
@@ -85,8 +84,8 @@ run_colors <- c(
 )
 
 # add more colours
-more_colors<-colours()[seq(3, 201, by=7)]
-names(more_colors)<-as.character(7:35)
+more_colors<-hcl.colors(n=10, palette = "Dynamic")
+names(more_colors)<-as.character(7:16)
 
 run_colors<-c(run_colors, more_colors)
 
@@ -133,11 +132,6 @@ if(!is.numeric(downsample)){
   downsample=downsample
 } else{downsample=10000}
 
-
-# Define length of run names (abbreviations needed for improved visualization)
-if(!is.numeric(abbrev_length)){
-  abbrev_length=abbrev_length
-} else{abbrev_length=20}
 ```
 
 ```{r localfilepaths, include=FALSE, eval=eval_local}
@@ -178,8 +172,7 @@ traits_path <- all_files[grep(tra_name, all_files)][1] # keep only first traits 
 # downsample=10000
 # 
 # 
-# # Define length of run names (abbrevaitions needed for improved visualization)
-# abbrev_length=20
+
 ```
 
 
@@ -189,7 +182,7 @@ Data input {data-orientation=columns, data-icon="fa-home"}
 
 ```{r message=FALSE, warning=FALSE}
 # load BayesTraits log file
-bt<-read_bt_log(file_path = log_path,abbrev_length = abbrev_length)
+bt<-read_bt_log(file_path = log_path)
 
 # load input tree
 tre<-read.nexus(file=tree_path)
@@ -224,16 +217,16 @@ if(run_mode=="Discrete") {
 }
  
 # load schedule files
-acceptance_rate<-read_bt_schedule(file_path = sched_path, abbrev_length = abbrev_length)
+acceptance_rate<-read_bt_schedule(file_path = sched_path)
 
 # load stones files
 if(length(stones_path)>0){
-  stones<-read_bt_stones(file_path = stones_path, abbrev_length = abbrev_length)
+  stones<-read_bt_stones(file_path = stones_path)
 }
 ```
 
 ```{r}
-# remove burnin, downsample and abbreviate runs
+# remove burnin and downsample 
 bt$chain_clean<-bt$chain %>%
   group_by(`Run ID`) %>%
   slice_tail(prop = 1-chains_burnin) %>%
@@ -347,7 +340,7 @@ gg_chain<-bt$chain_clean %>%
   geom_line(alpha=0.5) +
   geom_smooth(se = FALSE) +
   scale_colour_manual(values=unname(run_colors)) +
-  theme(legend.position = "bottom")
+  theme(legend.position = "none")
 
 # plotly-fy
 ggplotly(gg_chain) %>%
@@ -368,9 +361,7 @@ gg_chain_density<-bt$chain_clean %>%
   theme(legend.position = "none")
 
 # plotly-fy
-ggplotly(gg_chain_density) %>%
-  layout(hovermode = "x unified")
-
+ggplotly(gg_chain_density)
 ```
 
 ### ML Chain Violins
@@ -383,7 +374,10 @@ gg_chain_violins<-bt$chain_clean %>%
   scale_fill_manual(values=unname(run_colors)) +
   scale_color_manual(values=unname(run_colors)) +
   labs(x="", y="Log Likelihood") +
-  theme(legend.position = "none")
+  theme(legend.position = "none",
+        axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
 
 ## plotly-fy
 ggplotly(gg_chain_violins, tooltip = "text") %>%
@@ -508,38 +502,41 @@ Row
 ```{r fig.cap='Root state probabilities for each run'}
 
 if(comparison_mode) {
-  bt$chain_clean %>%
+  gg_root_state<-
+    bt$chain_clean %>%
     group_by(`Run ID`) %>%
-    select(starts_with("Root")) %>%
+    select(`Run ID`, starts_with("Root")) %>%
     summarise_all(mean) %>%
     pivot_longer(-`Run ID`,names_to="State",values_to="prob") %>%
     mutate(State=str_remove_all(State, ".*P\\(|\\)")) %>%
     ggplot(aes(y=`Run ID`,x=prob, fill=State)) +
-    geom_bar(stat="identity") +
+    #geom_bar(stat="identity") +
+   ggiraph:: geom_col_interactive(aes(tooltip = paste0("Run ID: ", `Run ID`,
+                                            "</br>State: ", State,
+                                            "</br>Prob: ", prob)))+
     coord_polar() +
     scale_fill_manual(values = traits_colors) +
     theme_void() + 
-    theme(legend.position = "bottom") +
-      annotate('text', x = 0, y = 1:(bt$chain_clean$`Run ID` %>% unique() %>% length()),
-               label = bt$chain_clean$`Run ID` %>% unique())
-
-    
+    theme(legend.position = "bottom") 
 } else {
-  bt$chain_clean %>%
+  gg_root_state<-
+    bt$chain_clean %>%
      select(starts_with("Root")) %>%
      summarise_all(mean) %>%
      pivot_longer(everything(),names_to="State",values_to="prob") %>%
      mutate(State=str_remove_all(State, ".*P\\(|\\)")) %>%
      ggplot(aes(x="",y=prob, fill=State)) +
-     geom_bar(stat="identity") +
+     ggiraph::geom_col_interactive(aes(tooltip = paste0("State: ", State,
+                                            "</br>Prob: ", prob)))+
      coord_polar("y") +
      scale_fill_manual(values = traits_colors) +
      theme_void() + 
      theme(legend.position = "bottom")
-
 }
 
-
+# plot
+ggiraph::girafe(ggobj=gg_root_state, width_svg = 15, height_svg = 4)
+#gg_root_state
 
 ```
 

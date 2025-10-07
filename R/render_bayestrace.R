@@ -6,13 +6,12 @@
 #' @param output_filename Custom name for BayesTrace output
 #' @param chains_burnin Percent of MCMC chains to discard as burnin (default set to 0)
 #' @param downsample Define how many (random) iterations to keep for plotting (reduces load, default = 10,000)
-#' @param abbrev_length Define length of run names (abbreviations useful for improved visualization). Default is 20 characters
 #' @return Returns a BayesTrace report as HTML file.
 #' @import Rmarkdown flexdashboard scales plotly reactable coda ape visNetwork
 #' @examples
 #' render_bayestrace("./path/to/BayesTrace/output")
 
-render_bayestrace<-function(file_path,output_filename="bayestrace_report",output_dir="./", chains_burnin=0,downsample=10000,abbrev_length=20){
+render_bayestrace<-function(file_path,output_filename="bayestrace_report",output_dir="./", chains_burnin=0,downsample=10000){
 
 
   rmd_template_path <- system.file("rmd", "bayestrace_report.Rmd", package = "bayestrace")
@@ -23,7 +22,6 @@ render_bayestrace<-function(file_path,output_filename="bayestrace_report",output
                     params = list(file_path=file_path,
                                   chains_burnin=chains_burnin,
                                   downsample=downsample,
-                                  abbrev_length=abbrev_length,
                                   shinyfy=FALSE),
                     envir = new.env(parent = globalenv())
   )

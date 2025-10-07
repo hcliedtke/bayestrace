@@ -25,4 +25,5 @@ Imports:
   scatterpie,
   ggiraph,
   htmlwidgets,
-  phylocanvas
+  phylocanvas,
+  ggiraph
