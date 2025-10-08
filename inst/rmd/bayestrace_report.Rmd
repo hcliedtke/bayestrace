@@ -483,8 +483,10 @@ gg_autocorr<-bind_rows(bt_acf,.id = "Run ID") %>%
   scale_colour_manual(values=unname(run_colors)) +
   labs(y="Autocorrelation Function") +
   facet_wrap(~`Run ID`, ncol = 1) +
-  theme(legend.position = "none")
-
+  #facet_grid(rows = vars(`Run ID`), switch = "y") +
+  theme(strip.text.x = element_blank(),
+        legend.position = "none")
+  
 #plotlyfy
 ggplotly(gg_autocorr)
 
