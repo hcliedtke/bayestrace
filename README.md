@@ -15,6 +15,24 @@ Here are some screen shots of what the interactive reports/dashboards look like:
 
 <img width="839" alt="Screenshot 2024-05-25 at 19 10 33" src="https://github.com/hcliedtke/bayestrace/assets/28728517/39bc3aea-5fcf-4526-a511-76f11c27e5b2">
 
+### Usage
+
+A lite version of BayesTrace can be accessed [here](https://hcliedtke.shinyapps.io/BayesTrace/). This version is limited to 1Gb of memory. A version with more capacity will be launched soon. alternatively, the content of this repository can be cloned/downloaded and the app can be run locally via R-Studio. Those unfamiliar with running shiny apps, see more [here](https://www.r-bloggers.com/2021/04/run-shiny-apps-locally/).
+
+Users need only set the path to the working directory that contain the following mandatory files:
+
+* tree file
+* traits file
+* .Log.txt output file
+* .Shedule.txt output file
+
+If available, the following optional files can also be included in the directory
+
+* Stones file
+
+Once the BayesTraits outputs have been uploaded, hit "Generate report" to build a .html file with the BayesTrace report.  
+
+
 ## The R package
 
 Underneath the shiny app, lies an R package with basic functions to read BayesTraits files into R, and most importantly to generate the HTML reporting summary, just like the shiny app does. For large MCMC files, or for customizing outputs, the R package might be more appropriate.
@@ -41,26 +59,24 @@ To generate the BayesTrace report
 render_bayestrace(file_path = "path/to/BayesTraits/output")
 ```
 
-
 ## Example Dashboards
 
 * Multistates - Ancestral States reconstruction [dashboard](https://rawcdn.githack.com/hcliedtke/bayestrace/388852d5915b63b0cd12e55aa7e150733be16bc2/bayestrace_shiny/BayesTrace/examples/Artiodactyl_multistates_anc_states/BayesTrace_report.html)
 * Discrete states - [dashboard](https://rawcdn.githack.com/hcliedtke/bayestrace/1cdf46504ebe67e2789ce7d2137359cd211c0e24/bayestrace_shiny/BayesTrace/examples/Primates_discrete/BayesTrace_report.html#model-comparison---logbf)
 * Model comparison - runs with vs. without covarion [dashboard](https://rawcdn.githack.com/hcliedtke/bayestrace/1cdf46504ebe67e2789ce7d2137359cd211c0e24/bayestrace_shiny/BayesTrace/examples/Bird_covarion/BayesTrace_report.html#mcmc-diagnostics)
 
-## Usage
+## Work in progress
 
-A lite version of BayesTrace can be accessed [here](https://hcliedtke.shinyapps.io/BayesTrace/). This version is limited to 1Gb of memory. A version with more capacity will be launched soon. alternatively, the content of this repository can be cloned/downloaded and the app can be run locally via R-Studio. Those unfamiliar with running shiny apps, see more [here](https://www.r-bloggers.com/2021/04/run-shiny-apps-locally/).
+### current models/options fully supported in BayesTrace Report
 
-Users need only set the path to the working directory that contain the following mandatory files:
-
-* tree file
-* traits file
-* .Log.txt output file
-* .Shedule.txt output file
-
-If available, the following optional files can also be included in the directory
-
-* Stones file
-
-Once the BayesTraits outputs have been uploaded, hit "Generate report" to build a .html file with the BayesTrace report.  
+-[x] MultiState
+-[x] Discrete: Independent
+-[x] Discrete: Dependent
+-[] Continuous: Random Walk (Model A)
+-[] Continuous: Directional (Model B)
+-[] Continuous: Regression
+-[] Independent Contrast
+-[] Independent Contrast: Correlation
+-[] Independent Contrast: Regression
+-[] Fat Tail
+-[] Geo
