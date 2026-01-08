@@ -1151,8 +1151,8 @@ mods_tmp<-bt$header %>%
     deframe() %>%
   sort()
 
-mod1=names(mods_tmp)[str_detect(mods_tmp, "Discrete: Dependent")][1]
-mod2=names(mods_tmp)[str_detect(mods_tmp, "Discrete: Independent")][1]
+mod1=names(mods_tmp)[str_detect(mods_tmp, "Discrete: Dependent")]
+mod2=names(mods_tmp)[str_detect(mods_tmp, "Discrete: Independent")]
 
   
 } else {
@@ -1164,19 +1164,21 @@ mod2=names(mods_tmp)[str_detect(mods_tmp, "Discrete: Independent")][1]
   sapply(.,ncol)
 
   ### select most complex and next most complex model
-mod1=names(which.max(model_complexity))[1]
-mod2=names(which.min(model_complexity))[1] 
+mod1=names(which.max(model_complexity))
+mod2=names(which.min(model_complexity)) 
 
 }
 
 
-### calculate logBF
+### calculate logBF (based on means if more than one likelihood is present)
 log_bf<-LogBF(mod1=stones$`marginal likelihood` %>%
-                select(all_of(mod1)) %>%
-                pull(),
+                select(any_of(mod1)) %>%
+                pull() %>%
+                mean(na.rm=T),
               mod2=stones$`marginal likelihood` %>%
-                select(all_of(mod2)) %>%
-                pull()
+                select(any_of(mod2)) %>%
+                pull() %>%
+                mean(na.rm=T)
               ) %>%
   round(2)
 
