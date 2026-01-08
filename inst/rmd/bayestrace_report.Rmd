@@ -1183,12 +1183,7 @@ log_bf<-LogBF(mod1=stones$`marginal likelihood` %>%
   round(2)
 
 # return Bayes Factor
-cat(paste0("Log Bayes Factor: ",LogBF(mod1=stones$`marginal likelihood` %>%
-                                        select(all_of(mod1)) %>% pull(),
-                                      mod2=stones$`marginal likelihood` %>%
-                                        select(all_of(mod2)) %>% 
-                                        pull()) %>%
-                                        round(2),
+cat(paste0("Log Bayes Factor: ",log_bf,
             "\nThe complex model (",mod1, ") is a ",ifelse(log_bf>0,"better","worse")," fit.")
             )
 } else {
