@@ -164,6 +164,10 @@ tra_name<-read_bt_header(log_path[1]) %>%
 
 traits_path <- all_files[grep(tra_name, all_files)][1] # keep only first traits file it finds
 
+# make sure all exist
+#file.exists(c(traits_path,tree_path,log_path,sched_path,stones_path))
+
+
 # custom settings
 # 
 # # Define EXTRA burnin (proportion of chain to remove as burnin. Default is 0 (keep entire chain))
@@ -828,7 +832,8 @@ traits_dummy<- dat %>%
     } else {
       .
     }
-  }
+  } #%>%
+    #select(-`<NA>`) # remove NA column if exists
 
 # merge tip data with ancestral states and add to graph layout
 layout<-layout %>%
@@ -847,7 +852,7 @@ gg<-layout %>%
   geom_scatterpie(
     data = layout %>%
       filter(leaf==FALSE),
-    cols = unique(dat$Trait),
+    cols = unique(dat$Trait) %>% na.omit(),
     pie_scale = ifelse(big_tree, 1, 2),
     legend_name = "Trait",
     color=NA) +
