@@ -30,7 +30,7 @@ read_bt_schedule<-function(file_path){
   for(i in 1:length(sched_paths)){
 
     ## find 1st line of table
-    first_line=grep(pattern = "^Rate Tried", read_lines(sched_paths[i], n_max=100))-1
+    first_line=grep(pattern = "^Rate Tried", read_lines(sched_paths[i], n_max=Inf))-1
 
     ## get header info
     header_list[[i]]<-read_tsv(file = sched_paths[i], n_max = first_line-1, skip = 1, col_names = FALSE) %>%

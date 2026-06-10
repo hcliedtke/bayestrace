@@ -55,16 +55,16 @@ read_bt_log<-function(file_path, read_chains=T){
 
         ## get headers
         first_line=1
-        last_line=grep(pattern = "^\\s+|^\\t+", read_lines(file_path[i], n_max=100))[1]-2 # finds first line with a space or tab as the first character, then backtraces 2.
+        last_line=grep(pattern = "^\\s+|^\\t+", read_lines(file_path[i], n_max=Inf))[1]-2 # finds first line with a space or tab as the first character, then backtraces 2.
 
         header_list[[i]]<-tabulate_section(file_path[i], first_line, last_line, col_names=c("Options",log_names[i]))
 
 
         ## get tags
-        first_line=grep(pattern = "Tags:", read_lines(file_path[i], n_max=100))
+        first_line=grep(pattern = "Tags:", read_lines(file_path[i], n_max=Inf))
         if(length(first_line)>0) {
 
-          last_line=grep(pattern = "^\\w+", read_lines(file_path[i], skip = first_line, n_max=100))[1]
+          last_line=grep(pattern = "^\\w+", read_lines(file_path[i], skip = first_line, n_max=Inf))[1]
 
           tags_list[[i]]<-tabulate_section(file_path[i], first_line, last_line,
                                            col_names=c("Tag","n","Species")) %>%
@@ -75,7 +75,7 @@ read_bt_log<-function(file_path, read_chains=T){
         first_line=grep(pattern = "Restrictions:", read_lines(file_path[i], n_max=Inf))
 
         if(length(first_line)>0) {
-          last_line=grep(pattern = "^\\w+", read_lines(file_path[i], skip = first_line, n_max=100))[1]
+          last_line=grep(pattern = "^\\w+", read_lines(file_path[i], skip = first_line, n_max=Inf))[1]
 
           restrictions_list[[i]]<-tabulate_section(file_path[i], first_line, last_line,
                                                    col_names=c("Transition",log_names[i]))
@@ -85,7 +85,7 @@ read_bt_log<-function(file_path, read_chains=T){
         first_line=grep(pattern = "Prior Information:", read_lines(file_path[i], n_max=Inf))
 
         if(length(first_line)>0) {
-          last_line=grep(pattern = "^\\w+", read_lines(file_path[i], skip = first_line, n_max=100))[1]
+          last_line=grep(pattern = "^\\w+", read_lines(file_path[i], skip = first_line, n_max=Inf))[1]
 
           priors_list[[i]]<-tabulate_section(file_path[i], first_line, last_line,
                                              col_names=c("Transitions",log_names[i])) %>%
@@ -97,7 +97,7 @@ read_bt_log<-function(file_path, read_chains=T){
         first_line=grep(pattern = "Tree Information", read_lines(file_path[i], n_max=Inf))
 
         if(length(first_line)>0) {
-          last_line=grep(pattern = "^\\w+", read_lines(file_path[i], skip = first_line, n_max=100))[1]
+          last_line=grep(pattern = "^\\w+", read_lines(file_path[i], skip = first_line, n_max=Inf))[1]
 
           tree_list[[i]]<- tabulate_section(file_path[i], first_line, last_line,
                                             col_names=c("Parameter",log_names[i]))
@@ -108,7 +108,7 @@ read_bt_log<-function(file_path, read_chains=T){
         first_line=grep(pattern = "Node reconstruction / fossilisation:", read_lines(file_path[i], n_max=Inf))
 
         if(length(first_line)>0) {
-          last_line=grep(pattern = "^\\w+", read_lines(file_path[i], skip = first_line, n_max=100))[1]
+          last_line=grep(pattern = "^\\w+", read_lines(file_path[i], skip = first_line, n_max=Inf))[1]
 
           recon_list[[i]]<- tabulate_section(file_path[i], first_line, last_line,
                                              col_names=c("Parameter",log_names[i])) %>%
