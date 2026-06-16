@@ -39,14 +39,14 @@ read_bt_log<-function(file_path, read_chains=T){
       tabulate_section<-function(file_path,first_line, last_line, col_names) {
 
         read_lines(file_path,
-                   skip=first_line,
-                   n_max=last_line-1) %>%
-          map_chr(~ .x %>% str_replace_all("^ +|^\t+| +$|\t$", "")) %>% # remove leading and trailing spaces
-          map_chr(~ .x %>% str_replace_all("(:  )+|: - |:\t|\t|(  )+", ";")) %>% # unify column delimiter
-          map_chr(~ .x %>% str_replace_all("; +|;\t+| +;|\t;", ";")) %>% # remove leading and trailing spaces
-          map_chr(~ .x %>% str_replace_all(";+", ";")) %>% # remove duplicated column breaks
-          paste0(., "\n",collapse = "\n") %>%
-          read_delim(delim=";",col_names = col_names) %>%
+                   skip = first_line,
+                   n_max = last_line - 1) %>%
+          map_chr(~.x %>% str_replace_all("^ +|^\t+| +$|\t$","")) %>%
+          map_chr(~.x %>% str_replace("(:  )+|: - |:\t|\t|(  )+| - ",";")) %>%
+          map_chr(~.x %>% str_replace_all("; +|;\t+| +;|\t;",";")) %>% 
+          map_chr(~.x %>% str_replace_all(";+",";")) %>%
+          paste0(., "\n", collapse = "\n") %>% 
+          read_delim(delim = ";", col_names = col_names) %>% 
           purrr::discard(~all(is.na(.)))
       }
 
