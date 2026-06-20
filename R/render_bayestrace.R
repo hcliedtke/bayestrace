@@ -14,13 +14,12 @@
 render_bayestrace<-function(file_path,output_filename="bayestrace_report.html",output_dir=getwd(), chains_burnin=0,downsample=10000){
 
 
-  rmd_template_path <- system.file("rmd", "bayestrace_quarto_report", package = "bayestrace")
+  rmd_template_path <- system.file("rmd", "bayestrace_quarto_report.qmd", package = "bayestrace")
 
 
   quarto::quarto_render(
     input          = rmd_template_path,
     output_file    = output_filename,
-    execute_dir   = output_dir,
     execute_params = list(file_path     = file_path,
                           chains_burnin = chains_burnin,
                           downsample    = downsample,
