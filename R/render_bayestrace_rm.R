@@ -11,7 +11,7 @@
 #' @examples
 #' render_bayestrace("./path/to/BayesTrace/output")
 
-render_bayestrace<-function(file_path,output_filename="bayestrace_report",output_dir=getwd(), chains_burnin=0,downsample=10000){
+render_bayestrace_rm<-function(file_path,output_filename="bayestrace_report",output_dir=getwd(), chains_burnin=0,downsample=10000){
 
 
   rmd_template_path <- system.file("rmd", "bayestrace_report.Rmd", package = "bayestrace")
