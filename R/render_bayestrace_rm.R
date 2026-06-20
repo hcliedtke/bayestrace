@@ -7,29 +7,26 @@
 #' @param chains_burnin Percent of MCMC chains to discard as burnin (default set to 0)
 #' @param downsample Define how many (random) iterations to keep for plotting (reduces load, default = 10,000)
 #' @return Returns a BayesTrace report as HTML file.
-#' @import Rmarkdown flexdashboard scales plotly reactable coda ape visNetwork quarto
+#' @import Rmarkdown flexdashboard scales plotly reactable coda ape visNetwork
 #' @examples
 #' render_bayestrace("./path/to/BayesTrace/output")
 
-render_bayestrace<-function(file_path,output_filename="bayestrace_report.html",output_dir=getwd(), chains_burnin=0,downsample=10000){
+render_bayestrace<-function(file_path,output_filename="bayestrace_report",output_dir=getwd(), chains_burnin=0,downsample=10000){
 
 
-  rmd_template_path <- system.file("rmd", "bayestrace_quarto_report", package = "bayestrace")
+  rmd_template_path <- system.file("rmd", "bayestrace_report.Rmd", package = "bayestrace")
 
-
-  quarto::quarto_render(
-    input          = rmd_template_path,
-    output_file    = output_filename,
-    execute_dir   = output_dir,
-    execute_params = list(file_path     = file_path,
-                          chains_burnin = chains_burnin,
-                          downsample    = downsample,
-                          shinyfy       = FALSE)
+  rmarkdown::render(input=rmd_template_path,
+                    output_file = output_filename,
+                    output_dir = output_dir,
+                    params = list(file_path=file_path,
+                                  chains_burnin=chains_burnin,
+                                  downsample=downsample,
+                                  shinyfy=FALSE),
+                    envir = new.env(parent = globalenv())
   )
-
 
   print(paste0("BayesTrace report saved in: ", output_dir))
 
 }
-
 

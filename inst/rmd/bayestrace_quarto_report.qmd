@@ -1,11 +1,10 @@
 ---
-title: "BayesTrace v1.0"
-output:
-  flexdashboard::flex_dashboard:
-    vertical_layout: fill
-    css: ./www/styles.css
-editor_options: 
-  chunk_output_type: console
+title: "BayesTrace V2"
+format:
+  dashboard:
+    theme: flatly
+    css: ./www/styles_quarto.css
+    orientation: columns
 params:
   file_index: file_index
   file_path: file_path
@@ -14,15 +13,10 @@ params:
   shinyfy: shinyfy
 ---
 
-<div class="header">
-  <img src="./www/bt_logo3.png"/>
-    <div class="headertext">
-   </div>
-</div> 
-
-```{r libraries, include=FALSE}
+```{r libraries, echo=F, include=F}
 # Load required packages
-library(flexdashboard)
+library(bayestrace)
+library(quarto)
 library(scales)
 library(tidyverse)
 library(plotly)
@@ -37,7 +31,7 @@ library(ggtree)
 library(scatterpie)
 library(ggiraph)
 library(htmlwidgets)
-library(phylocanvas)
+#library(phylocanvas)
 library(ggiraph)
 library(data.table)
 
@@ -50,17 +44,9 @@ file_index<-params$file_index
 file_path<-params$file_path
 chains_burnin<-params$chains_burnin
 downsample<-params$downsample
-
 ```
 
-
-```{r functions_and_theming, include=FALSE}
-# Load custom functions
-#source("./read_bt_log.R")
-#source("./read_bt_schedule.R")
-#source("./read_bt_stones.R")
-#source("./read_bt_header.R")
-
+```{r theming, include=FALSE}
 
 # global themes
 theme_set(theme_classic()+
@@ -89,8 +75,6 @@ more_colors<-hcl.colors(n=10, palette = "Dynamic")
 names(more_colors)<-as.character(7:16)
 
 run_colors<-c(run_colors, more_colors)
-
-
 ```
 
 
@@ -139,8 +123,12 @@ if(!is.numeric(downsample)){
 ```{r localfilepaths, include=FALSE, eval=eval_local}
 ### USE THIS BLOCK IF RUNNING LOCALY
 
-# Define file paths and names
+### TEST DATASET
+#file_path="~/Downloads/rjhp_cov_6states/"
+#chains_burnin=0
+#downsample=5000
 
+# Define file paths and names
 all_files<-list.files(path=file_path, full.names = T, recursive = T)
 
 log_path<-all_files[grep(".Log.txt", all_files)]
@@ -170,21 +158,7 @@ traits_path <- all_files[grep(tra_name, all_files)][1] # keep only first traits 
 #file.exists(c(traits_path,tree_path,log_path,sched_path,stones_path))
 
 
-# custom settings
-# 
-# # Define EXTRA burnin (proportion of chain to remove as burnin. Default is 0 (keep entire chain))
-# burnin=0
-# # Define how many (random) iterations to keep for plotting (reduces load, default = 10,000)
-# downsample=10000
-# 
-# 
-
 ```
-
-
-
-Data input {data-orientation=columns, data-icon="fa-home"}
-=====================================  
 
 ```{r message=FALSE, warning=FALSE}
 # load BayesTraits log file
@@ -268,12 +242,27 @@ comparison_mode<-bt$header %>%
   nrow()>0
 ```
 
-Column {data-width=60%}
------------------------------------------------------------------------
 
-### BayesTraits Header
 
-```{r}
+# {.sidebar}
+
+### Dashboards
+[Data Input](#data-input)\
+[MCMC Trace](#mcmc-trace)\
+[MCMC Diagnostics](#mcmc-diagnostics)\
+[Root State](#root-state)\
+[Transition Rates](#transition-rates)\
+[Node Reconstructions](#node-reconstructions)\
+[Reverse Jump](#reverse-jump)\
+[Model Comparison](#model-comparison)\
+
+# Data Input
+
+## {.tabset}
+
+### Header
+
+```{r input-header}
 # cat table, highlighting differences
 bt$header %>%
   mutate(not_same=if_any(2:ncol(.), ~ .x != bt$header[[2]])) %>% # identify columns that are not the same
@@ -296,51 +285,47 @@ bt$header %>%
   )
 ```
 
-Column {data-width=40%}
------------------------------------------------------------------------
+### Priors & Restrictions
 
-### Restrictions
+::: {.card title="Prior"}
+```{r input-prior}
+bt$priors %>%
+  reactable(defaultPageSize = 20)
+```
+:::
 
-```{r}
+
+::: {.card title="Restrictions"}
+```{r input-restrictions}
 bt$restrictions %>%
   reactable(defaultPageSize = 20)
 ```
+:::
 
-### Reconstructions / Fossilisations
+### Reconstructions & Fossilizations
 
-```{r}
+```{r input-reconstructions}
 if(is.null(bt$tags) | is.null(bt$recon)) {
   cat("No tags or reconstructions set")
 }else{
 bt$recon %>%
   left_join(bt$tags) %>%
-  reactable(defaultPageSize = 20)
+  reactable(defaultPageSize = 20,
+            searchable = T)
   }
-```
-
-### Priors
-
-```{r}
-bt$priors %>%
-  reactable(defaultPageSize = 20)
 ```
 
 ### Tree
 
-```{r}
+```{r input-tree}
 bt$tree %>%
   reactable(defaultPageSize = 20)
 ```
 
+# MCMC Trace
 
-MCMC traces {data-orientation=columns, data-icon="fa-chart-bar"}
-=====================================  
-    
-Column {data-width=60%}
------------------------------------------------------------------------
-
-### ML Chain
-```{r}
+::: {.card title="Chain Iterations" width="60%"}
+```{r chain-plot}
 gg_chain<-bt$chain_clean %>%
   ggplot(aes(x=Iteration, y=Lh, color=`Run ID`)) +
   geom_line(alpha=0.5) +
@@ -351,28 +336,11 @@ gg_chain<-bt$chain_clean %>%
 # plotly-fy
 ggplotly(gg_chain) %>%
   layout(legend = list(orientation = "h", x = 0, y =-0.2))
-
 ```
+:::
 
-Column {data-width=40%}
------------------------------------------------------------------------
-
-### ML Chain Density
-
-```{r}
-gg_chain_density<-bt$chain_clean %>%
-  ggplot(aes(x=Lh, fill=`Run ID`)) +
-  geom_density(alpha=0.5, color=NA) +
-  scale_fill_manual(values=unname(run_colors)) +
-  theme(legend.position = "none")
-
-# plotly-fy
-ggplotly(gg_chain_density)
-```
-
-### ML Chain Violins
-
-```{r}
+::: {.card title="Chain Distributions" width="40%"}
+```{r chain-violins}
 gg_chain_violins<-bt$chain_clean %>%
   ggplot(aes(x=`Run ID`, y=Lh, fill=`Run ID`, alpha=0.5)) +
   geom_violin(trim = FALSE, aes(text=`Run ID`), color=NA) +
@@ -389,19 +357,15 @@ gg_chain_violins<-bt$chain_clean %>%
 ggplotly(gg_chain_violins, tooltip = "text") %>%
   layout(boxgap = 0.9)
   
-
 ```
+:::
 
+# MCMC Diagnostics
 
-MCMC Diagnostics {data-icon="fa-stethoscope"}
-=====================================  
+## Column  {width="50%"}
 
-Column {data-width=50%}
------------------------------------------------------------------------
-
-### Effective Sampling Sizes
-
-```{r}
+::: {.card title="Effective Sampling Size"}
+```{r ees-table}
 ESS<-bt$chain %>%
   select(`Run ID`,starts_with(c("Lh","q","Root"))) %>%
   group_by(`Run ID`) %>%
@@ -430,12 +394,11 @@ ESS %>%
     }
     )
   )
-
 ```
+:::
 
-### Mean Acceptance Rates
-
-```{r}
+::: {.card title="Mean Acceptance Rates"}
+```{r mean-acceptance-table}
 # mean values
 acceptance_rate$schedule %>%
   group_by(`Run ID`) %>%
@@ -444,9 +407,10 @@ acceptance_rate$schedule %>%
   mutate_if(is.numeric, round, 2) %>%
   reactable()
 ```
+:::
 
-### Total Average Acceptance Rates
-```{r}
+::: {.card title="Total Average Acceptance Rates"}
+```{r acceptance-plot}
 # plot of total average acceptances
 gg_acc<-acceptance_rate$schedule %>%
   group_by(`Run ID`) %>%
@@ -461,15 +425,12 @@ gg_acc<-acceptance_rate$schedule %>%
 # plotly-fy
 ggplotly(gg_acc)
 ```
+:::
 
+## Column {width="50%"}
 
-
-Column {data-width=50%}
------------------------------------------------------------------------
-
-### Maximum Likelihood Autocorrelation
-
-```{r}
+::: {.card title="ML Autocorrelation"}
+```{r autocorr-plot}
 # calculate auto correlations
 bt_acf<-list()
 for(i in unique(bt$chain_clean$`Run ID`)){
@@ -495,18 +456,13 @@ gg_autocorr<-bind_rows(bt_acf,.id = "Run ID") %>%
   
 #plotlyfy
 ggplotly(gg_autocorr)
-
 ```
+:::
 
 
-Root State & Rate Estimates {data-orientation=rows, data-icon="fa-chart-pie"}
-=====================================  
+# Root State
 
-Row
------------------------------------------------------------------------
-
-### Root State
-
+::: {.card title="Root State"}
 ```{r fig.cap='Root state probabilities for each run'}
 
 if(comparison_mode) {
@@ -524,6 +480,7 @@ if(comparison_mode) {
                                             "</br>Prob: ", prob)))+
     coord_polar() +
     scale_fill_manual(values = traits_colors) +
+    facet_wrap(~`Run ID`) +
     theme_void() + 
     theme(legend.position = "bottom") 
 } else {
@@ -534,6 +491,7 @@ if(comparison_mode) {
      pivot_longer(everything(),names_to="State",values_to="prob") %>%
      mutate(State=str_remove_all(State, ".*P\\(|\\)")) %>%
      ggplot(aes(x="",y=prob, fill=State)) +
+     #geom_bar(stat="identity") +
      ggiraph::geom_col_interactive(aes(tooltip = paste0("State: ", State,
                                             "</br>Prob: ", prob)))+
      coord_polar("y") +
@@ -543,14 +501,20 @@ if(comparison_mode) {
 }
 
 # plot
-ggiraph::girafe(ggobj=gg_root_state, width_svg = 12, height_svg = 4)
-#gg_root_state
-
+#girafe(ggobj=gg_root_state, width_svg = 50, height_svg = 50)
+gg_root_state
 ```
+:::
 
-### Transition Rates Network
 
-```{r}
+# Transition Rates
+
+## {.tabset}
+
+### Summarized Transition Rates
+
+::: {.card title="Transition Rates Network" height="70%"}
+```{r trans-network}
 # calculate mean transition rates based on all concatenated chains if the runs are the same, if not, then transitions are shown for each chain separately
 
 if(!comparison_mode){
@@ -631,17 +595,30 @@ visNetwork::visNetwork(transition_nodes, transition_edges) %>%
   visOptions(selectedBy = list(variable="Run_ID", multiple=T))
 }
 
-
 ```
+:::
+
+::: {.card title="Transition Rates Matrix" height="30%"}
+```{r trans-table}
+bt$chain_clean %>%
+  select(starts_with("q")) %>%
+  summarise_all(mean) %>%
+  pivot_longer(everything(),names_to="parameter", values_to = "rate") %>%
+  mutate(from=str_sub(parameter, 2,2), to=str_sub(parameter, 3,3)) %>%
+  arrange(to) %>%
+  select(from, to, rate) %>%
+  pivot_wider(names_from = to, values_from = rate) %>%
+  arrange(from) %>%
+  mutate_if(is.numeric, round, 2) %>%
+  reactable::reactable()
+```
+:::
 
 
+### Transition Rate Densities
 
-Row
------------------------------------------------------------------------
-
-### Transition Rates Densities
-
-```{r}
+::: {.card title="Transition Rates Densities"}
+```{r trans-densities}
 
 if(comparison_mode) {
   rate_density_gg<-bt$chain_clean %>%
@@ -679,14 +656,12 @@ if(comparison_mode) {
   ggplotly(rate_density_gg)
 }
 
-
 ```
+:::
 
-Node Reconstructions {data-orientation=columns, data-icon="fa-project-diagram"}
-=====================================  
+# Node Reconstructions
 
-
-```{r}
+```{r calc-anc}
 ## add trait data to tree
 tre$traits<-dat %>%
   arrange(match(Species, tre$tip.label)) %>%
@@ -726,30 +701,11 @@ anc_df<-anc_df %>%
 }
 ```
 
-Column {data-width=30%}
------------------------------------------------------------------------
 
-### Node Reconstruction / Fossilisation
+## {.tabset}
 
-```{r}
-if(exists("anc_df")){
-  anc_df %>%
-    select(Tag, Node, Species,any_of(unique(dat$Trait) %>% na.omit())) %>%
-    mutate_if(is.numeric, round, 2) %>%
-    reactable()
-} else {
-  cat("No nodes were set for ancestral state reconstrucitions")
-}
-
-```
-
-
-Column {data-width=70%}
------------------------------------------------------------------------
-
-### Phylogeny
-
-```{r eval=TRUE, echo=FALSE}
+### Tree
+```{r anc-tree}
 
 big_tree<-length(tre$tip.label)>100
 
@@ -772,156 +728,31 @@ if(!is.null(bt$tags)){
 }
 ```
 
-```{r eval=FALSE, echo=FALSE, fig.width=12}
-
-big_tree<-length(tre$tip.label)>100
-
-phylo_canv<-phylocanvas(tre,treetype = ifelse(big_tree,"circular", "rectangular"), alignlabels = F)
-for(i in 1:length(tre$tip.label)){
-  phylo_canv<-phylo_canv %>%
-  style_node(tre$tip.labe[i], nodesizeratio = 5, fillcolor=unname(traits_colors[as.character(tre$traits)][i])) 
+### Table
+```{r anc-table}
+if(exists("anc_df")){
+  anc_df %>%
+    select(Tag, Node, Species,any_of(unique(dat$Trait) %>% na.omit())) %>%
+    mutate_if(is.numeric, round, 2) %>%
+    reactable(searchable = T)
+} else {
+  cat("No nodes were set for ancestral state reconstrucitions")
 }
-
-# add ancestral states
-if(!is.null(bt$tags)){
-  
-  for(i in 1:length(anc_df$node_num)){
-    
-  anc_i<-anc_df[i,] %>%
-    select(any_of(na.omit(unique(dat$Trait)))) %>%
-    which.max() %>%
-    names()
-
-  phylo_canv<-phylo_canv %>%
-  phylocanvas::style_node(nodeid=as.anc_df$node_num[i], nodesizeratio = 5, fillcolor=unname(traits_colors[as.character(anc_i)])) 
-  }
-  
-}
-
-
-phylo_canv
-
 ```
 
 
+# Reverse Jump
 
-```{r eval=FALSE, echo=FALSE, fig.width=12}
-# decide whether tree is large or not
-big_tree<-length(tre$tip.label)>100
-
-# ensure node labels are sequential node numbers
-tre$node.label<-(length(tre$tip.label)+1):(length(tre$tip.label)+tre$Nnode)
-
-# Convert phylo object to igraph and maintain edge lengths
-ig_tre <- as.igraph.phylo(tre, directed = TRUE)
-
-# make layout data for plotting
-tg <- as_tbl_graph(ig_tre)
-layout <- create_layout(tg, layout = "dendrogram",circular = T,length=tre$edge.length) 
-
-
-# make tip and node dummy matrix
-traits_dummy<- dat %>%
-  mutate(counts = 1) %>%
-  tidyr::spread(Trait, counts, fill = 0) %>%
-    # conditionally add ancestral states if available
-  {if(!is.null(bt$tags)){
-       bind_rows(
-         anc_df %>%
-         select(Species=node_num, all_of(unique(dat$Trait))) %>%
-         mutate(Species=as.character(Species))
-       )
-    } else {
-      .
-    }
-  } #%>%
-    #select(-`<NA>`) # remove NA column if exists
-
-# merge tip data with ancestral states and add to graph layout
-layout<-layout %>%
-  left_join(traits_dummy, by=c("name"="Species"))
-
-# Plot tree + pies
-gg<-layout %>%
-  ggraph() +
-  geom_edge_elbow() +
-  geom_point_interactive(
-    data=. %>%
-      filter(leaf==TRUE) %>%
-      left_join(dat, by=c("name"="Species")), ### if tips are inferred too this could be changed to show pie charts on tips as well
-    size = ifelse(big_tree, 0.5, 4),
-    aes(x=x, y=y, color=Trait, tooltip = name)) +
-  geom_scatterpie(
-    data = layout %>%
-      filter(leaf==FALSE),
-    cols = unique(dat$Trait) %>% na.omit(),
-    pie_scale = ifelse(big_tree, 1, 2),
-    legend_name = "Trait",
-    color=NA) +
-  scale_color_manual_interactive(values = traits_colors) +
-  scale_fill_manual_interactive(values = traits_colors) +
-  coord_fixed(clip = "off") +
-  theme_void() +
-  theme(plot.margin = margin(t = 30, r = 30, b = 30, l = 30),
-        legend.position="left",
-        legend.justification = "top")
-
-
-# add tip labels only if tree is small
-if(!big_tree){
-  gg<-gg +
-   geom_node_text(data = . %>%
-                   filter(leaf==TRUE),
-                 aes(
-                   x = x * 1.05,
-                   y = y * 1.05,
-                   filter = leaf,
-                   label = name,
-                   angle = ifelse(
-                     x >= 0,
-                     asin(y) * 360 / 2 / pi,
-                     360 - asin(y) * 360 / 2 / pi
-                   ),
-                   hjust = ifelse(
-                     x >= 0, 0, 1
-                   )),
-                   size=3)
-}
-
-## plot static
-#gg
-
-## plot interactive
-
-girafe(ggobj = gg,
-       options=list(
-         opts_zoom(min = 0.25, max = 10),  # enable zooming immediately
-         opts_sizing(rescale = TRUE),                 #  make zooming relative
-         opts_toolbar(saveaspng = TRUE),               # optional: add save button
-         opts_tooltip(opacity = 0.7, css = "background-color:white; padding:5px; border-radius:4px;"),
-         sizingPolicy(defaultWidth = "50%", defaultHeight = "200px")
-       ),
-  width_svg = 8,height_svg = 8
-       )
-```
-
-
-
-RevJ Model Reduction {data-orientation=columns, data-icon="fa-chart-area"}
-=====================================  
-
-Row
------------------------------------------------------------------------
-
-### Reverse Jump Model Sampling {data-height=30%}
-
-```{r}
+```{r check-rj}
 ## check if RJ has been used
 rj<-"Model string" %in% colnames(bt$chain_clean)
 ```
 
 
-```{r}
+## Column  {width="50%"}
+
+::: {.card title="Rev Jump Rates Sampling"}
+```{r rj-sampling}
 if(rj){
 transition_rates<-bt$chain_clean %>%
   select(starts_with("q")) %>%
@@ -945,12 +776,11 @@ transition_rates %>%
 } else {
   cat("No Reverse Jump used")
 }
-
 ```
+:::
 
-### Reverse Jump Model Ranking - Table {data-height=30%}
-
-```{r}
+::: {.card title="Rev Jump Model Ranking - Table"}
+```{r rj-ranking-table}
 if(rj){
   model_ranking<-bt$chain_clean %>%
     mutate(`Model string`=str_remove(`Model string`, "'")) %>%
@@ -966,12 +796,11 @@ model_ranking %>%
 }else {
   cat("No Reverse Jump used")
 }
-
 ```
+:::
 
-### Reverse Jump Model Ranking - Barchart {data-height=40%}
-
-```{r fig.width=12}
+::: {.card title="Rev Jump Model Ranking - Barchart"}
+```{r rj-ranking-plot}
 if(rj){
   revj_ranking_gg<-bt$chain_clean %>%
     count(`Model string`, name = "N sampled") %>%
@@ -993,14 +822,12 @@ if(rj){
   cat("No Reverse Jump used")
 }
 ```
+:::
 
+## Column {width="50%"}
 
-Row
------------------------------------------------------------------------
-
-### % Non-zero transitions
-
-```{r}
+::: {.card title="Non-Zero Transitions"}
+```{r rj-network-nonzero}
 
 if(rj){
   ### Plot transition network for 0% non-zero 
@@ -1041,10 +868,11 @@ visNetwork(transition_nodes, transition_edges) %>%
 }
 
 ```
+:::
 
-### Three most frequently sampled model
 
-```{r}
+::: {.card title="Top 3 Most Sampled Models"}
+```{r rj-network-top3}
 if(rj){
 
   transition_dat<-bt$chain_clean %>%
@@ -1101,22 +929,20 @@ visNetwork::visNetwork(transition_nodes, transition_edges) %>%
 par(mfrow=c(1,1))
 
 ```
+:::
 
-Model Comparison - LogBF {data-icon="fa-not-equal"}
-=====================================  
+# Model Comparison
 
-```{r}
+
+```{r mc-check}
 # check if stones file exists
 st<-exists("stones")
 multi_stones<- length(stones_path)>1
 ```
 
+## Column  {width="50%"}
 
-Column {data-width=50%}
------------------------------------------------------------------------
-
-### Stepping Stone Sampler {data-height=90%}
-
+::: {.card title="Stepping Stone Sampler" height="50%"}
 ```{r}
 if(st){
   stones$header %>%
@@ -1125,10 +951,9 @@ if(st){
   cat("No stepping stones sampler set")
 }
 ```
+:::
 
-
-### Log Marginal Likelihood {data-height=7%}
-
+::: {.card title="Log Marginal Likelihood"}
 ```{r}
 if(st){
   stones$`marginal likelihood` %>%
@@ -1137,11 +962,10 @@ if(st){
 } else {
   cat("No stepping stones sampler set")
 }
-
 ```
+:::
 
-### Log Bayes Factor {data-height=3%}
-
+::: {.card title="Log Bayes Factor"}
 ```{r}
 if(st & multi_stones){
   
@@ -1197,13 +1021,11 @@ cat(paste0("Log Bayes Factor: ",log_bf,
   cat("This needs at least two stones samplers")
 }
 ```
+:::
 
+## Column {width="50%"}
 
-Column {data-width=50%}
------------------------------------------------------------------------
-
-### Stone Power
-
+::: {.card title="Stones Power"}
 ```{r fig.width=12}
 if(st){
   stones_pow_gg<-stones$stones %>%
@@ -1218,12 +1040,11 @@ if(st){
 } else {
   cat("No stepping stones sampler set")
 }
-
 ```
+:::
 
 
-### Stone Marginal Likelihood
-
+::: {.card title="Stones Marginal Likelihood"}
 ```{r fig.width=12}
 if(st){
   stones_marml_gg<-stones$stones %>%
@@ -1241,10 +1062,10 @@ if(st){
 }
 
 ```
+:::
 
 
-### Running Marginal Likelihood
-
+::: {.card title="Running Marginal Likelihood"}
 ```{r fig.width=12}
 if(st){
   running_marml_gg<-stones$stones %>%
@@ -1262,4 +1083,5 @@ if(st){
 }
 
 ```
+:::
 

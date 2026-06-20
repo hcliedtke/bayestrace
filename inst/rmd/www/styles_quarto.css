@@ -1,0 +1,11 @@
+/*##################### remove header navbar */
+
+#quarto-dashboard-header .navbar-nav {
+  display: none !important;
+}
+
+/* Targets the sidebar links globally, including hover/active states */
+.sidebar a {
+    text-decoration: none !important;
+	font-size: 18px;
+}
