@@ -39,6 +39,7 @@ library(ggiraph)
 library(htmlwidgets)
 library(phylocanvas)
 library(ggiraph)
+library(data.table)
 
 # establish if running via shiny or locally
 eval_shiny<-params$shinyfy==TRUE
@@ -466,7 +467,7 @@ ggplotly(gg_acc)
 Column {data-width=50%}
 -----------------------------------------------------------------------
 
-### Maximum Likelohood Autocorrelation
+### Maximum Likelihood Autocorrelation
 
 ```{r}
 # calculate auto correlations
@@ -733,7 +734,7 @@ Column {data-width=30%}
 ```{r}
 if(exists("anc_df")){
   anc_df %>%
-    select(Tag, Node, Species,unique(dat$Trait)) %>%
+    select(Tag, Node, Species,any_of(unique(dat$Trait) %>% na.omit())) %>%
     mutate_if(is.numeric, round, 2) %>%
     reactable()
 } else {
@@ -748,7 +749,7 @@ Column {data-width=70%}
 
 ### Phylogeny
 
-```{r eval=FALSE, echo=FALSE}
+```{r eval=TRUE, echo=FALSE}
 
 big_tree<-length(tre$tip.label)>100
 
@@ -764,21 +765,21 @@ tiplabels(pch=16, col=traits_colors[as.character(tre$traits)], cex=ifelse(big_tr
 
 if(!is.null(bt$tags)){
   nodelabels(node = anc_df$node_num,pie = anc_df %>%
-               select(unique(dat$Trait)),
+               select(any_of(na.omit(unique(dat$Trait)))),
              cex = 1,
              piecol=traits_colors)
   legend("bottomleft", legend = names(traits_colors), pch=15, col=traits_colors, bty="n")
 }
 ```
 
-```{r eval=FALSE, fig.width=12}
+```{r eval=FALSE, echo=FALSE, fig.width=12}
 
 big_tree<-length(tre$tip.label)>100
 
 phylo_canv<-phylocanvas(tre,treetype = ifelse(big_tree,"circular", "rectangular"), alignlabels = F)
 for(i in 1:length(tre$tip.label)){
   phylo_canv<-phylo_canv %>%
-  style_node(tre$tip.labe[i], nodesizeratio = 2, fillcolor=unname(traits_colors[as.character(tre$traits)][i])) 
+  style_node(tre$tip.labe[i], nodesizeratio = 5, fillcolor=unname(traits_colors[as.character(tre$traits)][i])) 
 }
 
 # add ancestral states
@@ -786,13 +787,13 @@ if(!is.null(bt$tags)){
   
   for(i in 1:length(anc_df$node_num)){
     
-  anc_i<-anc_df %>%
-    select(unique(dat$Trait)) %>%
+  anc_i<-anc_df[i,] %>%
+    select(any_of(na.omit(unique(dat$Trait)))) %>%
     which.max() %>%
     names()
 
   phylo_canv<-phylo_canv %>%
-  style_node(anc_df$node_num[i], nodesizeratio = 2, fillcolor=unname(traits_colors[as.character(anc_i)])) 
+  phylocanvas::style_node(nodeid=as.anc_df$node_num[i], nodesizeratio = 5, fillcolor=unname(traits_colors[as.character(anc_i)])) 
   }
   
 }
@@ -804,7 +805,7 @@ phylo_canv
 
 
 
-```{r}
+```{r eval=FALSE, echo=FALSE, fig.width=12}
 # decide whether tree is large or not
 big_tree<-length(tre$tip.label)>100
 
