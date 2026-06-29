@@ -3,8 +3,10 @@ title: "BayesTrace V2"
 format:
   dashboard:
     theme: flatly
-    css: ./www/styles_quarto.css
+    css: ./www/styles.css
     orientation: columns
+    self-contained: true
+output: dashboard
 params:
   file_index: file_index
   file_path: file_path
@@ -124,7 +126,7 @@ if(!is.numeric(downsample)){
 ### USE THIS BLOCK IF RUNNING LOCALY
 
 ### TEST DATASET
-#file_path="~/Downloads/rjhp_cov_6states/"
+#file_path="~/Desktop/bayestrace_test/Artiodactyl_multistates_anc_states/"
 #chains_burnin=0
 #downsample=5000
 
@@ -142,7 +144,7 @@ stones_path<-all_files[grep(".Stones.txt", all_files)]
 names(stones_path)<-basename(stones_path)
 
 
-tr_name<-read_bt_header(log_path[1]) %>%
+tr_name<-read_bt_log(log_path[1], read_chains = F)$header %>%
                         filter(Options=="Tree File Name") %>%
                         pull(2)
 
