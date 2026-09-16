@@ -4,12 +4,10 @@
 \alias{read_bt_stones}
 \title{Read the BayesTraits Stones files}
 \usage{
-read_bt_stones(file_path, abbrev_length = 20)
+read_bt_stones(file_path)
 }
 \arguments{
-\item{file_path}{path, or vector of multiple paths to BayesTraits schedule files}
-
-\item{abbrev_length}{number of characters to reduce log file names to, for neater visualisation. Default is 20 characters.}
+\item{file_path}{path, or vector of multiple paths to BayesTraits Stones files}
 }
 \value{
 returns a list of tables for BayesTraits Stones files. This includes the header, the stones and their marginal likelihood, and a table with the final marginal likelihoods.

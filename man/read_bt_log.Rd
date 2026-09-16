@@ -4,14 +4,12 @@
 \alias{read_bt_log}
 \title{Read the BayesTraits log file}
 \usage{
-read_bt_log(file_path, read_chains = T, abbrev_length = 20)
+read_bt_log(log_path, read_chains = T)
 }
 \arguments{
-\item{file_path}{path, or vector of multiple paths to BayesTraits Log files}
+\item{log_path}{path, or vector of multiple paths to BayesTraits Log files}
 
 \item{read_chains}{logical operator whether to read the MCMC chains output. Default is set to TRUE, but can be turned off in cases when files are large, and only run settings are desired.}
-
-\item{abbrev_length}{number of characters to reduce log file names to, for neater visualisation. Default is 20 characters.}
 }
 \value{
 returns a list of tables for BayesTraits log files. This includes the MCMC chains and the header broken up into multiple tables, including the run info (header) and any settings for restrictions, priors, ancestral state reconstructions and node fossilizations and tree other settings
