@@ -5,7 +5,7 @@
 #' @param log_path path, or vector of multiple paths to BayesTraits Log files
 #' @param read_chains logical operator whether to read the MCMC chains output. Default is set to TRUE, but can be turned off in cases when files are large, and only run settings are desired.
 #' @return returns a list of tables for BayesTraits log files. This includes the MCMC chains and the header broken up into multiple tables, including the run info (header) and any settings for restrictions, priors, ancestral state reconstructions and node fossilizations and tree other settings
-#' @import readr tidyverse data.table
+#' @import readr tidyverse data.table stringr
 #' @examples
 #' read_bt_log("./my_bayestraits_run.Log.txt")
 
@@ -19,7 +19,7 @@
   }
 
 
-  ### supress tidyverse messages and warnings
+  ### suppress tidyverse messages and warnings
   suppressMessages(suppressWarnings({
 
     ### read log header
@@ -43,6 +43,7 @@
         map_chr(~.x %>% str_replace_all("; +|;\t+| +;|\t;",";")) %>%
         map_chr(~.x %>% str_replace_all(";+",";")) %>%
         paste0(., collapse = "\n") %>%
+        I() %>%
         read_delim(delim = ";", col_names = col_names) %>%
         purrr::discard(~all(is.na(.)))
     }

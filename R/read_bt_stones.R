@@ -46,6 +46,7 @@ read_bt_stones<-function(file_path){
       map_chr(~ .x %>% str_replace_all("(:  )+|: - |:\t", ";")) %>% # unify column delimiter
       map_chr(~ .x %>% str_replace_all("; +|;\t+| +;|\t;", ";")) %>% # remove leading and trailing spaces
       paste0(., "\n",collapse = "\n") %>%
+      I() %>%
       read_delim(delim=";",
                  col_names = c("Parameters",stones_names[i])) %>%
       purrr::discard(~all(is.na(.)))

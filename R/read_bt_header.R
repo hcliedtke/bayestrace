@@ -26,6 +26,7 @@ read_bt_header<-function(file_path){
       map_chr(~ .x %>% str_replace_all("(:  )+|: - |:\t|\t", ";")) %>% # unify column delimiter
       map_chr(~ .x %>% str_replace_all("; +|;\t+| +;|\t;", ";")) %>% # remove leading and trailing spaces
       paste0(., "\n",collapse = "\n") %>%
+      I() %>%
       read_delim(delim=";", col_names = c("Options","X")) %>%
       purrr::discard(~all(is.na(.)))
   }

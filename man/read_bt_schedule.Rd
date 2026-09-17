@@ -4,10 +4,10 @@
 \alias{read_bt_schedule}
 \title{Read the BayesTraits Schedule files}
 \usage{
-read_bt_schedule(file_path)
+read_bt_schedule(shedule_path)
 }
 \arguments{
-\item{file_path}{path, or vector of multiple paths to BayesTraits schedule files}
+\item{shedule_path}{path, or vector of multiple paths to BayesTraits schedule files}
 }
 \value{
 returns a list of tables for BayesTraits Schedule files. This includes the header and the acceptance rates table.

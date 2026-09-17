@@ -18,24 +18,24 @@
 # a list containing acceptance rate information
 
 read_bt_geo<-function(file_path){
-  
+
   ## read file names
   geo_paths<-file_path
   geo_names<-str_remove_all(basename(file_path), pattern="\\.AncStates\\.txt")
-  
+
   ## make empty lists
   node_list<-list()
   anc_list<-list()
-  
+
   ##
   for(i in 1:length(geo_paths)){
-    
+
     ## find 1st line of node table
     first_line=grep(pattern = "^Node Name", read_lines(geo_paths[i], n_max=20))-1
-    
+
     ## find last line of node table
     last_line=grep(pattern = "Itter", read_lines(geo_paths[i]))-1
-    
+
     ## get node info
     node_list[[i]]<-read_lines(geo_paths,
                                  skip = 0,
@@ -44,30 +44,31 @@ read_bt_geo<-function(file_path){
       map_chr(~ .x %>% str_replace_all("(:  )+|: - |:\t", ";")) %>% # unify column delimiter
       map_chr(~ .x %>% str_replace_all("; +|;\t+| +;|\t;", ";")) %>% # remove leading and trailing spaces
       paste0(., "\n",collapse = "\n") %>%
+      I() %>%
       read_delim(delim="\t") %>%
       purrr::discard(~all(is.na(.))) %>%
       group_by_all() %>%
       rowwise() %>%
       reframe(Taxa=str_split(Taxa, pattern="\\t"))
-    
+
     ## get anc iterations
     anc_list[[i]]<-read_tsv(file = geo_paths[i],
-                               skip = last_line) 
-    
+                               skip = last_line)
+
   }
-  
+
   ### concatenate node list into a single df
   names(node_list)<-geo_names
   node_df<-bind_rows(node_list, .id="Run ID")
-  
+
   ### concatenate node list into a single df
   names(anc_list)<-geo_names
   anc_df<-bind_rows(anc_list, .id="Run ID")
-  
-  
-  
+
+
+
   # function output
   return(list(nodes=node_df,
               anc_geo=anc_df))
-  
+
 }

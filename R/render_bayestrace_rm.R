@@ -7,7 +7,7 @@
 #' @param chains_burnin Percent of MCMC chains to discard as burnin (default set to 0)
 #' @param downsample Define how many (random) iterations to keep for plotting (reduces load, default = 10,000)
 #' @return Returns a BayesTrace report as HTML file.
-#' @import Rmarkdown flexdashboard scales plotly reactable coda ape visNetwork
+#' @import rmarkdown flexdashboard scales plotly reactable coda ape visNetwork
 #' @examples
 #' render_bayestrace_rm("./path/to/BayesTrace/output")
 
