@@ -4,7 +4,7 @@
 \alias{read_bt_schedule}
 \title{Read the BayesTraits Schedule files}
 \usage{
-read_bt_schedule(shedule_path)
+read_bt_schedule(file_path)
 }
 \arguments{
 \item{shedule_path}{path, or vector of multiple paths to BayesTraits schedule files}

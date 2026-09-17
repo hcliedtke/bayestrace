@@ -4,7 +4,8 @@
 #'
 #' @param file_path path, or vector of multiple paths to BayesTraits Stones files
 #' @return returns a list of tables for BayesTraits Stones files. This includes the header, the stones and their marginal likelihood, and a table with the final marginal likelihoods.
-#' @import readr tidyverse
+#' @import readr data.table stringr purrr dplyr tidyr
+#' @export
 #' @examples
 #' read_bt_stones("./my_bayestraits_run.Stones.txt")
 

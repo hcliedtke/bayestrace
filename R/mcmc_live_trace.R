@@ -2,6 +2,7 @@
 #'
 #' @param file_path path, or vector of multiple paths to BayesTraits Log files
 #' @param refresh_rate Refresh interval in milliseconds (default: 2000 ms)
+#' @export
 #' @examples
 #' mcmc_live_trace("./my_bayestraits_run.Log.txt")
 #'

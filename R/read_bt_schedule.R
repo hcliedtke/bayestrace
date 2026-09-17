@@ -4,14 +4,15 @@
 #'
 #' @param shedule_path path, or vector of multiple paths to BayesTraits schedule files
 #' @return returns a list of tables for BayesTraits Schedule files. This includes the header and the acceptance rates table.
-#' @import readr tidyverse
+#' @import readr data.table stringr purrr dplyr tidyr
+#' @export
 #' @examples
 #' read_bt_schedule("./my_bayestraits_run.Schedule.txt")
 
-read_bt_schedule<-function(shedule_path){
+read_bt_schedule<-function(file_path){
 
   ## read file names
-  sched_paths<-shedule_path
+  sched_paths<-file_path
   sched_names<-str_remove_all(basename(sched_paths), pattern="\\.Schedule\\.txt")
 
   ## make empty lists

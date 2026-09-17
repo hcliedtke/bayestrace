@@ -4,7 +4,8 @@
 #'
 #' @param file_path path, or vector of multiple paths to BayesTraits Log files
 #' @return returns a table or a list of tables for BayesTraits headers
-#' @import readr tidyverse
+#' @import readr data.table stringr purrr dplyr tidyr
+#' @export
 #' @examples
 #' read_bt_header("./my_bayestraits_run.Log.txt")
 

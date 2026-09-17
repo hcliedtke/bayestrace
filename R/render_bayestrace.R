@@ -8,6 +8,7 @@
 #' @param downsample Define how many (random) iterations to keep for plotting (reduces load, default = 10,000)
 #' @return Returns a BayesTrace report as HTML file.
 #' @import quarto
+#' @export
 #' @examples
 #' render_bayestrace(file_path="./path/to/BayesTraits/output")
 
