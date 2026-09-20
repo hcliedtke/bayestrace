@@ -4,7 +4,9 @@
 #'
 #' @param file_path path, or vector of multiple paths to BayesTraits Stones files
 #' @return returns a list of tables for BayesTraits Stones files. This includes the header, the stones and their marginal likelihood, and a table with the final marginal likelihoods.
-#' @import readr data.table stringr purrr dplyr tidyr
+#' @import readr stringr purrr dplyr tidyr
+#' @importFrom data.table fread
+
 #' @export
 #' @examples
 #' read_bt_stones("./my_bayestraits_run.Stones.txt")
@@ -38,6 +40,9 @@ read_bt_stones<-function(file_path){
 
     ## find last line of table
     last_line=grep(pattern = "Log marginal likelihood", read_lines(stones_paths[i]))-1
+
+    ## if stones file exists, but is empty, abort
+    if(length(last_line)<1) rlang::abort("Stones file empty")
 
     ## get header info
     header_list[[i]]<-read_lines(stones_paths,

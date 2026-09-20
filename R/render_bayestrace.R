@@ -14,6 +14,26 @@
 
 render_bayestrace<-function(file_path,output_filename="bayestrace_report.html", chains_burnin=0,downsample=10000){
 
+  # check all packages required by the report template are installed
+  required_pkgs <- c(
+    "quarto", "scales", "tidyverse", "plotly", "reactable",
+    "coda", "ape", "visNetwork", "ggraph", "igraph", "tidygraph",
+    "ggtree", "scatterpie", "ggiraph", "htmlwidgets", "data.table"
+  )
+
+  missing_pkgs <- required_pkgs[!sapply(required_pkgs, requireNamespace, quietly = TRUE)]
+
+  if(length(missing_pkgs) > 0) {
+    stop(
+      "The following packages are required to render the BayesTrace report but are not installed:\n",
+      paste(" -", missing_pkgs, collapse = "\n"), "\n\n",
+      "Install them with:\n",
+      'install.packages(c(', paste0('"', missing_pkgs, '"', collapse = ", "), '))',
+      call. = FALSE
+    )
+  }
+
+
   # Location of the installed project
   src <- system.file("qmd", package = "bayestrace")
 
@@ -34,6 +54,7 @@ render_bayestrace<-function(file_path,output_filename="bayestrace_report.html", 
   quarto::quarto_render(
     input = report,
     output_format = "dashboard",
+    output_file = output_filename,
     execute_dir = dirname(report),
     execute_params = list(file_path     = file_path,
                           chains_burnin = chains_burnin,
@@ -43,7 +64,7 @@ render_bayestrace<-function(file_path,output_filename="bayestrace_report.html", 
 
   # Copy the report to the working directory
   file.copy(
-    from=file.path(tmp, "qmd", "bayestrace_quarto_report.html"),
+    from=file.path(tmp, "qmd", output_filename),
     to=file.path(getwd(), output_filename),
     overwrite = TRUE
   )

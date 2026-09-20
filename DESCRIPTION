@@ -1,6 +1,6 @@
 Package: bayestrace
 Type: Package
-Title: Reproting tool for BayesTrace
+Title: Reporting tool for BayesTrace
 Version: 2.0.1
 Author: H. Christoph Liedtke
 Maintainer: H. Christoph Liedtke <christoph.liedtke@ebd.csic.es>
@@ -9,27 +9,26 @@ License: MIT
 Encoding: UTF-8
 LazyData: true
 Imports:
-  quarto,
-  rmarkdown,
-  flexdashboard,
-  scales,
-  tidyverse,
-  stringr,
-  purrr,
-  data.table,
-  tidyr,
-  readr,
-  plotly,
-  reactable,
-  coda,
-  ape,
-  visNetwork,
-  ggraph,
-  igraph,
-  tidygraph,
-  ggtree,
-  scatterpie,
-  ggiraph,
-  htmlwidgets,
-  phylocanvas
+    ape,
+    coda,
+    data.table,
+    dplyr,
+    flexdashboard,
+    ggiraph,
+    ggraph,
+    ggtree,
+    htmlwidgets,
+    igraph,
+    plotly,
+    purrr,
+    quarto,
+    reactable,
+    readr,
+    rmarkdown,
+    scales,
+    scatterpie,
+    stringr,
+    tidygraph,
+    tidyr,
+    visNetwork
 Config/roxygen2/version: 8.1.0

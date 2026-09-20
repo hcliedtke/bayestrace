@@ -239,7 +239,7 @@ if(run_mode=="Discrete"){
 ```{r}
 # define "mode". I.e. are multiple runs the same, or are they run with different settings 
 comparison_mode<-bt$header %>%
-  filter(if_any(2:ncol(.), ~ .x != bt$header[,2])) %>%
+  filter(rowSums(across(2:ncol(.), ~ .x != bt$header[, 2])) > 0) %>%
   filter(!Options %in% c("Log File Name","Seed", "Schedule File","Iterations","Cores")) %>%
   nrow()>0
 ```
@@ -267,7 +267,7 @@ comparison_mode<-bt$header %>%
 ```{r input-header}
 # cat table, highlighting differences
 bt$header %>%
-  mutate(not_same=if_any(2:ncol(.), ~ .x != bt$header[[2]])) %>% # identify columns that are not the same
+  mutate(not_same = rowSums(across(2:ncol(.), ~ .x != bt$header[[2]])) > 0) %>% # identify columns that are not the same
   reactable(
     defaultPageSize = 50,
     defaultColDef = colDef(
@@ -937,7 +937,7 @@ par(mfrow=c(1,1))
 
 
 ```{r mc-check}
-# check if stones file exists
+# check if stones file exists and is empty
 st<-exists("stones")
 multi_stones<- length(stones_path)>1
 ```
